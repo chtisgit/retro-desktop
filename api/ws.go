@@ -39,8 +39,8 @@ type WSErrorResponse struct {
 
 type WSCreateFileResponse struct {
 	Name string  `json:"name"`
-	X    float64 `json:"X"`
-	Y    float64 `json:"Y"`
+	X    float64 `json:"x"`
+	Y    float64 `json:"y"`
 }
 
 type WSMove struct {
