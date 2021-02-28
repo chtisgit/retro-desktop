@@ -17,9 +17,7 @@ type Desktop struct {
 	activeUsers int32
 
 	filesLock sync.Mutex
-	files     []api.File
-	createX   int
-	createY   int
+	state     api.Desktop
 
 	msgLock sync.Mutex
 	subs    []chan *api.WSResponse
@@ -29,7 +27,7 @@ type Desktop struct {
 
 func (d *Desktop) Files() (files []api.File) {
 	d.filesLock.Lock()
-	files = d.files
+	files = d.state.Files
 	d.filesLock.Unlock()
 
 	return
@@ -63,11 +61,11 @@ func (d *Desktop) Request(req *api.WSRequest) (res api.WSResponse) {
 		d.filesLock.Lock()
 
 		found := false
-		for i := range d.files {
-			if d.files[i].Name == req.Move.Name {
+		for i := range d.state.Files {
+			if d.state.Files[i].Name == req.Move.Name {
 				res.Move = req.Move
-				d.files[i].X = req.Move.ToX
-				d.files[i].Y = req.Move.ToY
+				d.state.Files[i].X = req.Move.ToX
+				d.state.Files[i].Y = req.Move.ToY
 				found = true
 				break
 			}
@@ -130,7 +128,7 @@ func (d *Desktop) HTTPUploadFile(w http.ResponseWriter, r *http.Request) {
 	d.filesLock.Lock()
 	defer d.filesLock.Unlock()
 
-	if len(d.files) >= 256 {
+	if len(d.state.Files) >= 256 {
 		http.Error(w, "The desktop is full", http.StatusInternalServerError)
 		return
 	}
@@ -140,25 +138,25 @@ func (d *Desktop) HTTPUploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d.files = append(d.files, api.File{
+	d.state.Files = append(d.state.Files, api.File{
 		Name: hdr.Filename,
-		X:    float64(d.createX),
-		Y:    float64(d.createY),
+		X:    float64(d.state.CreateX),
+		Y:    float64(d.state.CreateY),
 	})
 
 	d.SendMessage(&api.WSResponse{
 		Type: "create_file",
 		CreateFile: api.WSCreateFileResponse{
 			Name: hdr.Filename,
-			X:    float64(d.createX),
-			Y:    float64(d.createY),
+			X:    float64(d.state.CreateX),
+			Y:    float64(d.state.CreateY),
 		},
 	})
 
-	d.createX += 64
-	if d.createX >= 1920 {
-		d.createX = 16
-		d.createY += 96
+	d.state.CreateX += 64
+	if d.state.CreateX >= 1920 {
+		d.state.CreateX = 16
+		d.state.CreateY += 96
 	}
 }
 
@@ -183,6 +181,15 @@ func (d *Desktop) Messages() (ch chan *api.WSResponse, unsubscribe func()) {
 				copy(d.subs[i:], d.subs[i+1:])
 				d.subs = d.subs[:len(d.subs)-1]
 				break
+			}
+		}
+
+		// drain channel
+		for {
+			select {
+			case <-ch:
+			default:
+				return
 			}
 		}
 	}

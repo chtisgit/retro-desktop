@@ -52,10 +52,13 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+
 	dt, err := s.desktoper.OpenDesktop(id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+	defer dt.Close()
 
 	log.Print("ws request: ", r.RequestURI)
 	c, err := s.upg.Upgrade(w, r, nil)
@@ -101,7 +104,7 @@ wsloop:
 			if !more {
 				log.Printf("ws: error: reqs closed unexpectedly")
 				reqs = nil
-				break
+				break wsloop
 			}
 
 			res := dt.Request(&req)
@@ -113,7 +116,7 @@ wsloop:
 			if !more {
 				log.Printf("ws: error: msgs closed unexpectedly")
 				msgs = nil
-				break
+				break wsloop
 			}
 			if err := c.WriteJSON(msg); err != nil {
 				log.Println("ws: write error: ", err)
@@ -122,6 +125,7 @@ wsloop:
 		}
 	}
 
+	log.Println("ws closed")
 }
 
 func (s *Server) root(w http.ResponseWriter, r *http.Request) {

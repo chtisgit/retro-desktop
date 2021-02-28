@@ -1,5 +1,11 @@
 package api
 
+type Desktop struct {
+	Files   []File `json:"files"`
+	CreateX int    `json:"createX"`
+	CreateY int    `json:"createY"`
+}
+
 type File struct {
 	Name string `json:"name"`
 

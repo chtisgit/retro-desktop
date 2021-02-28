@@ -1,6 +1,7 @@
 package desktoper
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -34,11 +35,9 @@ func (d *Desktoper) newDesktop(name string) *Desktop {
 		name:      name,
 		path:      filepath.Join(d.path, name),
 		desktoper: d,
-		createX:   16,
-		createY:   16,
-		files: []api.File{
-			{Name: "README.TXT", X: 16, Y: 16},
-			{Name: "porn.mp4", X: 105, Y: 32},
+		state: api.Desktop{
+			CreateX: 16,
+			CreateY: 16,
 		},
 	}
 
@@ -57,6 +56,16 @@ func (d *Desktoper) OpenDesktop(name string) (*Desktop, error) {
 	if !ok {
 		dt = d.newDesktop(name)
 		d.m[name] = dt
+
+		f, err := os.Open(filepath.Join(d.path, name+".json"))
+		if err == nil {
+			if err := json.NewDecoder(f).Decode(&dt.state); err != nil {
+				f.Close()
+				os.Remove(f.Name())
+			} else {
+				f.Close()
+			}
+		}
 	}
 
 	atomic.AddInt32(&d.newDesktop(name).activeUsers, 1)
@@ -65,6 +74,7 @@ func (d *Desktoper) OpenDesktop(name string) (*Desktop, error) {
 }
 
 func (d *Desktoper) CloseDesktop(name string) error {
+
 	d.mLock.Lock()
 	defer d.mLock.Unlock()
 
@@ -73,9 +83,19 @@ func (d *Desktoper) CloseDesktop(name string) error {
 		return errors.New("not found")
 	}
 
-	if atomic.LoadInt32(&dt.activeUsers) == 0 {
-		// TODO: delete desktop
+	n := atomic.LoadInt32(&dt.activeUsers)
+	if n == 0 {
+		f, err := os.Create(filepath.Join(d.path, name+".json"))
+		if err != nil {
+			return err
+		}
 
+		err = json.NewEncoder(f).Encode(dt.state)
+		f.Close()
+
+		delete(d.m, name)
+
+		return err
 	}
 
 	return nil
