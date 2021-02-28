@@ -27,11 +27,11 @@ type Server struct {
 // Server implements http.Handler
 var _ http.Handler = (*Server)(nil)
 
-func New() (s *Server) {
+func New(dir, webroot string) (s *Server) {
 	s = &Server{
 		m:         mux.NewRouter(),
-		webroot:   "../../web",
-		desktoper: desktoper.New("../../desktops"),
+		webroot:   webroot,
+		desktoper: desktoper.New(dir),
 	}
 
 	s.m.Path("/").HandlerFunc(s.root)
