@@ -18,6 +18,8 @@ type Desktop struct {
 
 	filesLock sync.Mutex
 	files     []api.File
+	createX   int
+	createY   int
 
 	msgLock sync.Mutex
 	subs    []chan *api.WSResponse
@@ -125,19 +127,39 @@ func (d *Desktop) HTTPUploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	d.filesLock.Lock()
+	defer d.filesLock.Unlock()
+
+	if len(d.files) >= 256 {
+		http.Error(w, "The desktop is full", http.StatusInternalServerError)
+		return
+	}
+
 	if err := d.createFile(hdr.Filename, file); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	d.files = append(d.files, api.File{
+		Name: hdr.Filename,
+		X:    float64(d.createX),
+		Y:    float64(d.createY),
+	})
+
 	d.SendMessage(&api.WSResponse{
 		Type: "create_file",
 		CreateFile: api.WSCreateFileResponse{
 			Name: hdr.Filename,
-			X:    0,
-			Y:    0,
+			X:    float64(d.createX),
+			Y:    float64(d.createY),
 		},
 	})
+
+	d.createX += 64
+	if d.createX >= 1920 {
+		d.createX = 16
+		d.createY += 96
+	}
 }
 
 func (d *Desktop) OpenFile(name string) (*os.File, error) {

@@ -34,6 +34,8 @@ func (d *Desktoper) newDesktop(name string) *Desktop {
 		name:      name,
 		path:      filepath.Join(d.path, name),
 		desktoper: d,
+		createX:   16,
+		createY:   16,
 		files: []api.File{
 			{Name: "README.TXT", X: 16, Y: 16},
 			{Name: "porn.mp4", X: 105, Y: 32},
