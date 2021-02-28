@@ -3,12 +3,14 @@ package api
 type File struct {
 	Name string `json:"name"`
 
-	X int `json:"x"`
-	Y int `json:"y"`
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
 }
 
 type WSRequest struct {
 	Type string `json:"type"`
+
+	Move WSMove `json:"move"`
 }
 
 type WSResponse struct {
@@ -16,6 +18,7 @@ type WSResponse struct {
 
 	Init       WSInitResponse       `json:"init"`
 	CreateFile WSCreateFileResponse `json:"create_file"`
+	Move       WSMove               `json:"move"`
 	Error      WSErrorResponse      `json:"error"`
 }
 
@@ -29,7 +32,13 @@ type WSErrorResponse struct {
 }
 
 type WSCreateFileResponse struct {
-	Name string `json:"name"`
-	X    int    `json:"X"`
-	Y    int    `json:"Y"`
+	Name string  `json:"name"`
+	X    float64 `json:"X"`
+	Y    float64 `json:"Y"`
+}
+
+type WSMove struct {
+	Name string  `json:"name"`
+	ToX  float64 `json:"toX"`
+	ToY  float64 `json:"toY"`
 }

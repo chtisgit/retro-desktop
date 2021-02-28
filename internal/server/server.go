@@ -1,8 +1,10 @@
 package server
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -65,18 +67,27 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 
 	defer c.Close()
 
-	reqs := make(chan api.WSRequest)
+	reqs := make(chan api.WSRequest, 1)
 	msgs, unsub := dt.Messages()
 	defer unsub()
 
 	go func() {
 		for {
 			var req api.WSRequest
-			err := c.ReadJSON(&req)
+			t, p, err := c.ReadMessage()
 			if err != nil {
 				log.Println("ws: read error:", err)
 				close(reqs)
 				return
+			}
+			if t != websocket.TextMessage {
+				log.Println("ws: non-text messsage received unexpectedly. ignoring.")
+				continue
+			}
+
+			if err := json.NewDecoder(bytes.NewReader(p)).Decode(&req); err != nil {
+				log.Println("ws: json decode error: ", err)
+				continue
 			}
 
 			reqs <- req
@@ -86,19 +97,29 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 wsloop:
 	for {
 		select {
-		case req := <-reqs:
+		case req, more := <-reqs:
+			if !more {
+				log.Printf("ws: error: reqs closed unexpectedly")
+				reqs = nil
+				break
+			}
+
 			res := dt.Request(&req)
 			if err := c.WriteJSON(res); err != nil {
 				log.Println("ws: write error: ", err)
 				break wsloop
 			}
-		case msg := <-msgs:
+		case msg, more := <-msgs:
+			if !more {
+				log.Printf("ws: error: msgs closed unexpectedly")
+				msgs = nil
+				break
+			}
 			if err := c.WriteJSON(msg); err != nil {
 				log.Println("ws: write error: ", err)
 				break wsloop
 			}
 		}
-
 	}
 
 }

@@ -225,6 +225,8 @@ function wsMessage(event)
 {
 	var res = JSON.parse(event.data);
 
+	console.log('wsMessage');
+
 	switch(res.type){
 	case 'init':
 		res.init.files.forEach(function(file) {
@@ -239,6 +241,12 @@ function wsMessage(event)
 			x: res.create_file.x,
 			y: res.create_file.y,
 		});
+		break;
+	case 'move':
+		moveFile(res.move.name, res.move.toX, res.move.toY);
+		break;
+	case 'error':
+		console.log('backend error: ', res.error.text);
 		break;
 	default:
 		console.log('what is : ', res.type);
@@ -288,17 +296,52 @@ document.addEventListener("dragstart", function(event) {
 	console.log('start ', r.left, ' ', r.top);
 }, false);
 
+function moveFile(name, x, y)
+{
+	var filenames = document.getElementsByClassName('filename');
+	var f = null;
+	for(var i = 0; i !== filenames.length; i++){
+		if(filenames[i].innerText === name) {
+			f = filenames[i];
+		}
+	}
+
+	if(!f) {
+		return;
+	}
+
+	var e = f.parentElement;
+
+	e.style.left = x+'px';
+	e.style.top = y+'px';
+}
+
 document.addEventListener("dragend", function(event) {
 	if (dragged === null)
 		return;
 
 	// reset the transparency
-	dragged.style.opacity = "";
-	dragged.style.left = startX+event.clientX+'px';
-	dragged.style.top = startY+event.clientY+'px';
+	dragged.style.opacity = '';
+
+	var x = startX+event.clientX;
+	var y = startY+event.clientY;
+
+	ws.send(JSON.stringify({
+		type: 'move',
+		move: {
+			name: dragged.getElementsByClassName('filename')[0].innerText,
+			toX: x,
+			toY: y,
+		},
+	}));
+
 	console.log('clientX: ', event.clientX, '  clientY: ', event.clientY);
 	console.log('end ', startX+event.clientX, ' ', startY+event.clientY);
 	dragged = null;
+	return;
+
+	dragged.style.left = startX+event.clientX+'px';
+	dragged.style.top = startY+event.clientY+'px';
 
 }, false);
 

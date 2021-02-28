@@ -2,6 +2,7 @@ package desktoper
 
 import (
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -32,16 +33,59 @@ func (d *Desktop) Files() (files []api.File) {
 	return
 }
 
+func checkCoords(x, y float64) bool {
+	if math.IsNaN(x) || math.IsNaN(y) {
+		return false
+	}
+	if math.IsInf(x, 0) || math.IsInf(y, 0) {
+		return false
+	}
+
+	return x >= 0 && y >= 0 && x < 1920 && y < 1080
+}
+
 func (d *Desktop) Request(req *api.WSRequest) (res api.WSResponse) {
 	res.Type = req.Type
 
 	switch req.Type {
 	case "init":
 		res.Init.Files = d.Files()
+	case "move":
+		if !checkCoords(req.Move.ToX, req.Move.ToY) {
+			res.Type = "error"
+			res.Error.ID = "coordinates-out-of-range"
+			res.Error.Text = "Coordinates out of range"
+			return
+		}
+
+		d.filesLock.Lock()
+
+		found := false
+		for i := range d.files {
+			if d.files[i].Name == req.Move.Name {
+				res.Move = req.Move
+				d.files[i].X = req.Move.ToX
+				d.files[i].Y = req.Move.ToY
+				found = true
+				break
+			}
+		}
+
+		d.filesLock.Unlock()
+
+		if !found {
+			res.Type = "error"
+			res.Error.ID = "file-not-found"
+			res.Error.Text = "Cannot move file '" + req.Move.Name + "' because it does not exist"
+			return
+		}
+
+		d.SendMessage(&res)
+
 	default:
 		res.Type = "error"
 		res.Error.ID = "unkown-request-type"
-		res.Error.Text = "Unknown request type"
+		res.Error.Text = "Unknown request type '" + req.Type + "'"
 	}
 
 	return
@@ -101,12 +145,11 @@ func (d *Desktop) OpenFile(name string) (*os.File, error) {
 }
 
 func (d *Desktop) Messages() (ch chan *api.WSResponse, unsubscribe func()) {
-	ch = make(chan *api.WSResponse)
+	ch = make(chan *api.WSResponse, 1)
 
 	d.msgLock.Lock()
-	defer d.msgLock.Unlock()
-
 	d.subs = append(d.subs, ch)
+	d.msgLock.Unlock()
 
 	unsubscribe = func() {
 		d.msgLock.Lock()
