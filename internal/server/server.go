@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/chtisgit/retro-waste/api"
@@ -151,7 +152,7 @@ func (s *Server) desktop(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("desktop %s", id)
 
-	http.ServeFile(w, r, "../../web/index.html")
+	http.ServeFile(w, r, filepath.Join(s.webroot, "index.html"))
 }
 
 func (s *Server) fileUpload(w http.ResponseWriter, r *http.Request) {
