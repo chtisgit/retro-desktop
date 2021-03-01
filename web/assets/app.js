@@ -141,12 +141,14 @@ function downloadFile(filename) {
 	document.body.removeChild(e); 
 }
 
-async function uploadFile(file) {
+async function uploadFile(file, pos) {
 	var formData = new FormData();
-	formData.append("file", file);
+	formData.append('file', file);
+	formData.append('x', pos.x-24);
+	formData.append('y', pos.y-24);
 
 	var res = await fetch('/api/desktop/'+desktopID+'/file', {
-		method: "POST",
+		method: 'POST',
 		body: formData,
 		cache: 'no-cache',
 		referrerPolicy: 'no-referrer',
@@ -209,13 +211,25 @@ function dropHandler(ev)
 
 	var all = [];
 
+	var pos = {
+		x: ev.clientX,
+		y: ev.clientY,
+	};
+
 	if (ev.dataTransfer.items) {
 		for(var i = 0; i !== ev.dataTransfer.items.length; i++){
 			var item = ev.dataTransfer.items[i];
 			if (item.kind === 'file') {
 				var file = ev.dataTransfer.items[i].getAsFile();
 				console.log('... file[' + i + '].name = ' + file.name);
-				all.push(uploadFile(file))
+				
+				all.push(uploadFile(file, pos))
+
+				pos.x += 64;
+				if (pos.x >= 1920-64) {
+					pos.x = 16;
+					pos.y += 96;
+				}
 			}
 		}
 	}

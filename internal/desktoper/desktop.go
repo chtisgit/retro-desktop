@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -214,6 +215,20 @@ func (d *Desktop) HTTPUploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var x, y float64
+	serverCoords := true
+	x, err = strconv.ParseFloat(r.FormValue("x"), 64)
+	if err == nil {
+		y, err = strconv.ParseFloat(r.FormValue("y"), 64)
+		if err == nil {
+			serverCoords = false
+		}
+	}
+	if serverCoords {
+		x = float64(d.state.CreateX)
+		y = float64(d.state.CreateY)
+	}
+
 	d.filesLock.Lock()
 	defer d.filesLock.Unlock()
 
@@ -233,8 +248,8 @@ func (d *Desktop) HTTPUploadFile(w http.ResponseWriter, r *http.Request) {
 	f := api.File{
 		ID:   id,
 		Name: hdr.Filename,
-		X:    float64(d.state.CreateX),
-		Y:    float64(d.state.CreateY),
+		X:    x,
+		Y:    y,
 	}
 
 	d.state.Files = append(d.state.Files, f)
@@ -246,10 +261,12 @@ func (d *Desktop) HTTPUploadFile(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 
-	d.state.CreateX += 64
-	if d.state.CreateX >= 1920 {
-		d.state.CreateX = 16
-		d.state.CreateY += 96
+	if serverCoords {
+		d.state.CreateX += 64
+		if d.state.CreateX >= 1920 {
+			d.state.CreateX = 16
+			d.state.CreateY += 96
+		}
 	}
 }
 
