@@ -24,7 +24,15 @@ var global = {
 	
 		},
 		'delete': function(event) {
-			console.log('delete file ');
+			if(global.cmFile === null) {
+				return;
+			}
+			global.ws.send(JSON.stringify({
+				type: 'delete_file',
+				delete_file: {
+					id: global.cmFile,
+				}
+			}));
 		},
 	},
 };
@@ -76,7 +84,7 @@ function fileClickHandler(event)
 
 function getFileIDFromDOM(elem)
 {
-	if(elem.classList.contains('filename')) {
+	if(elem.classList.contains('filename') || elem.classList.contains('icon')) {
 		return getFileIDFromDOM(elem.parentElement);
 	}
 
@@ -210,6 +218,16 @@ function createFile(file)
 	*/
 }
 
+function deleteFile(id)
+{
+	var f = document.getElementById('fileID-'+id);
+	if(!f) {
+		return;
+	}
+
+	f.parentElement.removeChild(f);
+}
+
 function dropHandler(ev)
 {
 	ev.preventDefault();
@@ -265,6 +283,9 @@ function wsMessage(event)
 		break;
 	case 'create_file':
 		createFile(res.create_file.file);
+		break;
+	case 'delete_file':
+		deleteFile(res.delete_file.id);
 		break;
 	case 'move':
 		moveFile(res.move.id, res.move.toX, res.move.toY);

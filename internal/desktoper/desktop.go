@@ -41,14 +41,14 @@ func (d *Desktop) Files() (files []api.File) {
 
 var ErrFileNotFound = errors.New("file not found")
 
-type FileFunc func(*api.File)
+type FileFunc func(file *api.File, index int)
 
 func (d *Desktop) File(id string, f FileFunc) error {
 	d.filesLock.Lock()
 
 	for i := range d.state.Files {
 		if d.state.Files[i].ID == id {
-			f(&d.state.Files[i])
+			f(&d.state.Files[i], i)
 
 			d.filesLock.Unlock()
 
@@ -62,7 +62,7 @@ func (d *Desktop) File(id string, f FileFunc) error {
 }
 
 func (d *Desktop) GetFile(id string) (f *api.File, err error) {
-	err = d.File(id, func(file *api.File) {
+	err = d.File(id, func(file *api.File, _ int) {
 		f = new(api.File)
 		*f = *file
 	})
@@ -94,7 +94,7 @@ func (d *Desktop) Request(req *api.WSRequest) (res api.WSResponse) {
 			return
 		}
 
-		if err := d.File(req.Move.ID, func(file *api.File) {
+		if err := d.File(req.Move.ID, func(file *api.File, _ int) {
 			res.Move = req.Move
 			file.X = req.Move.ToX
 			file.Y = req.Move.ToY
@@ -106,6 +106,20 @@ func (d *Desktop) Request(req *api.WSRequest) (res api.WSResponse) {
 			return
 		}
 
+		d.SendMessage(&res)
+	case "delete_file":
+		if err := d.File(req.DeleteFile.ID, func(_ *api.File, i int) {
+			copy(d.state.Files[i:], d.state.Files[i+1:])
+			d.state.Files = d.state.Files[:len(d.state.Files)-1]
+		}); err != nil {
+			// TODO: did we just assume the error?
+			res.Type = "error"
+			res.Error.ID = "file-not-found"
+			res.Error.Text = "Cannot delete file with id '" + req.Move.ID + "' because it does not exist"
+			return
+		}
+
+		res.DeleteFile = req.DeleteFile
 		d.SendMessage(&res)
 
 	default:

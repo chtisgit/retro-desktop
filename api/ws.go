@@ -23,7 +23,8 @@ type File struct {
 type WSRequest struct {
 	Type string `json:"type"`
 
-	Move WSMove `json:"move"`
+	Move       WSMove       `json:"move"`
+	DeleteFile WSDeleteFile `json:"delete_file"`
 }
 
 type WSResponse struct {
@@ -31,6 +32,7 @@ type WSResponse struct {
 
 	Init       WSInitResponse       `json:"init"`
 	CreateFile WSCreateFileResponse `json:"create_file"`
+	DeleteFile WSDeleteFile         `json:"delete_file"`
 	Move       WSMove               `json:"move"`
 	Error      WSErrorResponse      `json:"error"`
 }
@@ -52,4 +54,8 @@ type WSMove struct {
 	ID  string  `json:"id"`
 	ToX float64 `json:"toX"`
 	ToY float64 `json:"toY"`
+}
+
+type WSDeleteFile struct {
+	ID string `json:"id"`
 }
