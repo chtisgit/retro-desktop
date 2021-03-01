@@ -245,7 +245,7 @@ function wsMessage(event)
 		});
 		break;
 	case 'create_file':
-		createFile(res.file);
+		createFile(res.create_file.file);
 		break;
 	case 'move':
 		moveFile(res.move.id, res.move.toX, res.move.toY);
