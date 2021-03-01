@@ -71,17 +71,26 @@ function fileClickHandler(event)
 	}, 500);
 }
 
+function getFileIDFromDOM(elem)
+{
+	if(elem.classList.contains('filename')) {
+		return getFileIDFromDOM(elem.parentElement);
+	}
+
+	var s = elem.id;
+	if(!s || !s.startsWith('fileID-')) {
+		return null;
+	}
+
+	return s.substr(7)
+}
+
 function fileContextMenuHandler(event)
 {
 	event.preventDefault();
 	var cm = document.getElementById('contextmenu');
 
-	var t = event.target;
-	if(t.classList.contains('filename')) {
-		cmFile = t.innerText;
-	}else{
-		cmFile = t.parentElement.getElementsByClassName('filename')[0].innerText;
-	}
+	cmFile = getFileIDFromDOM(event.target);
 
 	cm.style.display = 'block';
 	cm.style.top = event.clientY+'px';
@@ -126,7 +135,7 @@ function iconByFilename(name)
 function downloadFile(filename) {
 	var e = document.createElement('a'); 
 	e.style.display = 'none';
-	e.setAttribute('href',  '/api/desktop/'+desktopID+'/file/'+filename); 
+	e.setAttribute('href',  '/api/desktop/'+desktopID+'/file/'+filename+'/download'); 
 	document.body.appendChild(e); 
 	e.click(); 
 	document.body.removeChild(e); 
@@ -146,13 +155,13 @@ async function uploadFile(file) {
 	console.log(res);
 }
 
-function createFile(name, opts)
+function createFile(file)
 {
 	var elem = document.createElement('div');
 	var iconelem = document.createElement('div');
 
-	var x = opts ? opts.x : null;
-	var y = opts ? opts.y : null;
+	var x = file.x;
+	var y = file.y;
 
 	if(!x || !y) {
 		x = createPos.x;
@@ -164,8 +173,9 @@ function createFile(name, opts)
 		}
 	}
 
-	console.log('create file ', name, ' at ', x+'x'+y);
+	console.log('create file ', file.name, ' at ', x+'x'+y);
 
+	elem.id = 'fileID-'+file.id;
 	elem.classList.add('file');
 	elem.style.top = y + 'px';
 	elem.style.left = x + 'px';
@@ -173,10 +183,10 @@ function createFile(name, opts)
 	iconelem.width = 48;
 	iconelem.height = 48;
 	iconelem.classList.add('icon');
-	iconelem.classList.add(iconByFilename(name));
+	iconelem.classList.add(iconByFilename(file.name));
 
 	var span = document.createElement('span');
-	span.innerText = name;
+	span.innerText = file.name;
 	span.classList.add('filename');
 	span.classList.add('unselectable');
 
@@ -188,7 +198,8 @@ function createFile(name, opts)
 	document.getElementById('fileAnchor').appendChild(elem);
 
 	files.push({
-		name: name,
+		id: file.id,
+		name: file.name,
 	});
 }
 
@@ -230,20 +241,14 @@ function wsMessage(event)
 	switch(res.type){
 	case 'init':
 		res.init.files.forEach(function(file) {
-			createFile(file.name, {
-				x: file.x,
-				y: file.y,
-			})
+			createFile(file);
 		});
 		break;
 	case 'create_file':
-		createFile(res.create_file.name, {
-			x: res.create_file.x,
-			y: res.create_file.y,
-		});
+		createFile(res.file);
 		break;
 	case 'move':
-		moveFile(res.move.name, res.move.toX, res.move.toY);
+		moveFile(res.move.id, res.move.toX, res.move.toY);
 		break;
 	case 'error':
 		console.log('backend error: ', res.error.text);
@@ -296,24 +301,15 @@ document.addEventListener("dragstart", function(event) {
 	console.log('start ', r.left, ' ', r.top);
 }, false);
 
-function moveFile(name, x, y)
+function moveFile(id, x, y)
 {
-	var filenames = document.getElementsByClassName('filename');
-	var f = null;
-	for(var i = 0; i !== filenames.length; i++){
-		if(filenames[i].innerText === name) {
-			f = filenames[i];
-		}
-	}
-
+	var f = document.getElementById('fileID-'+id)
 	if(!f) {
 		return;
 	}
 
-	var e = f.parentElement;
-
-	e.style.left = x+'px';
-	e.style.top = y+'px';
+	f.style.left = x+'px';
+	f.style.top = y+'px';
 }
 
 document.addEventListener("dragend", function(event) {
@@ -329,7 +325,7 @@ document.addEventListener("dragend", function(event) {
 	ws.send(JSON.stringify({
 		type: 'move',
 		move: {
-			name: dragged.getElementsByClassName('filename')[0].innerText,
+			id: getFileIDFromDOM(dragged),
 			toX: x,
 			toY: y,
 		},

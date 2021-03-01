@@ -3,6 +3,7 @@ package desktoper
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -52,8 +53,10 @@ func (d *Desktoper) OpenDesktop(name string) (*Desktop, error) {
 	d.mLock.Lock()
 	defer d.mLock.Unlock()
 
+	log.Printf("Open Desktop %s\n", name)
 	dt, ok := d.m[name]
 	if !ok {
+		log.Printf("Not loaded. Load")
 		dt = d.newDesktop(name)
 		d.m[name] = dt
 
@@ -64,11 +67,18 @@ func (d *Desktoper) OpenDesktop(name string) (*Desktop, error) {
 				os.Remove(f.Name())
 			} else {
 				f.Close()
+
+				log.Print("legacy shit")
+				// deal with legacy desktops that didn't have IDs
+				dt.assignFileIDs()
+				dt.assignDates()
 			}
 		}
 	}
 
-	atomic.AddInt32(&d.newDesktop(name).activeUsers, 1)
+	users := atomic.AddInt32(&dt.activeUsers, 1)
+
+	log.Printf("New active user on desktop %s (total %d)", name, users)
 
 	return dt, nil
 }
@@ -83,8 +93,9 @@ func (d *Desktoper) CloseDesktop(name string) error {
 		return errors.New("not found")
 	}
 
-	n := atomic.LoadInt32(&dt.activeUsers)
+	n := atomic.AddInt32(&dt.activeUsers, -1)
 	if n == 0 {
+		log.Print("Close Desktop ", name)
 		f, err := os.Create(filepath.Join(d.path, name+".json"))
 		if err != nil {
 			return err

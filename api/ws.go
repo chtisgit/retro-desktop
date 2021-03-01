@@ -1,16 +1,23 @@
 package api
 
+import "time"
+
 type Desktop struct {
-	Files   []File `json:"files"`
-	CreateX int    `json:"createX"`
-	CreateY int    `json:"createY"`
+	Files     []File `json:"files"`
+	CreateX   int    `json:"createX"`
+	CreateY   int    `json:"createY"`
+	FileIDCtr int    `json:"fileIDctr`
 }
 
 type File struct {
+	ID   string `json:"id"`
 	Name string `json:"name"`
 
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
+
+	Created  *time.Time `json:"created"`
+	Modified *time.Time `json:"modified"`
 }
 
 type WSRequest struct {
@@ -38,13 +45,11 @@ type WSErrorResponse struct {
 }
 
 type WSCreateFileResponse struct {
-	Name string  `json:"name"`
-	X    float64 `json:"x"`
-	Y    float64 `json:"y"`
+	File File `json:"file"`
 }
 
 type WSMove struct {
-	Name string  `json:"name"`
-	ToX  float64 `json:"toX"`
-	ToY  float64 `json:"toY"`
+	ID  string  `json:"id"`
+	ToX float64 `json:"toX"`
+	ToY float64 `json:"toY"`
 }

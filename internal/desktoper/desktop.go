@@ -1,12 +1,16 @@
 package desktoper
 
 import (
+	"errors"
+	"fmt"
 	"io"
+	"log"
 	"math"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/chtisgit/retro-waste/api"
 )
@@ -31,6 +35,36 @@ func (d *Desktop) Files() (files []api.File) {
 	copy(files, d.state.Files)
 	d.filesLock.Unlock()
 
+	return
+}
+
+var ErrFileNotFound = errors.New("file not found")
+
+type FileFunc func(*api.File)
+
+func (d *Desktop) File(id string, f FileFunc) error {
+	d.filesLock.Lock()
+
+	for i := range d.state.Files {
+		if d.state.Files[i].ID == id {
+			f(&d.state.Files[i])
+
+			d.filesLock.Unlock()
+
+			return nil
+		}
+	}
+
+	d.filesLock.Unlock()
+
+	return ErrFileNotFound
+}
+
+func (d *Desktop) GetFile(id string) (f *api.File, err error) {
+	err = d.File(id, func(file *api.File) {
+		f = new(api.File)
+		*f = *file
+	})
 	return
 }
 
@@ -59,25 +93,15 @@ func (d *Desktop) Request(req *api.WSRequest) (res api.WSResponse) {
 			return
 		}
 
-		d.filesLock.Lock()
-
-		found := false
-		for i := range d.state.Files {
-			if d.state.Files[i].Name == req.Move.Name {
-				res.Move = req.Move
-				d.state.Files[i].X = req.Move.ToX
-				d.state.Files[i].Y = req.Move.ToY
-				found = true
-				break
-			}
-		}
-
-		d.filesLock.Unlock()
-
-		if !found {
+		if err := d.File(req.Move.ID, func(file *api.File) {
+			res.Move = req.Move
+			file.X = req.Move.ToX
+			file.Y = req.Move.ToY
+		}); err != nil {
+			// TODO: did we just assume the error?
 			res.Type = "error"
 			res.Error.ID = "file-not-found"
-			res.Error.Text = "Cannot move file '" + req.Move.Name + "' because it does not exist"
+			res.Error.Text = "Cannot move file with id '" + req.Move.ID + "' because it does not exist"
 			return
 		}
 
@@ -95,6 +119,7 @@ func (d *Desktop) Request(req *api.WSRequest) (res api.WSResponse) {
 func (d *Desktop) SendMessage(msg *api.WSResponse) {
 	d.msgLock.Lock()
 
+	log.Printf("Send message (type %s) to %d receivers", msg.Type, len(d.subs))
 	for i := range d.subs {
 		d.subs[i] <- msg
 	}
@@ -119,6 +144,69 @@ func (d *Desktop) createFile(name string, src io.ReadSeeker) error {
 	return err
 }
 
+func (d *Desktop) newID() (string, error) {
+	if d.state.FileIDCtr == 16777215 {
+		return "", errors.New("no more file IDs")
+	}
+
+	id := fmt.Sprintf("%06X", d.state.FileIDCtr)
+	d.state.FileIDCtr++
+
+	return id, nil
+}
+
+func (d *Desktop) assignDates() {
+	for i := range d.state.Files {
+		if d.state.Files[i].Created == nil {
+			d.state.Files[i].Created = new(time.Time)
+			*d.state.Files[i].Created = time.Now()
+		}
+
+		if d.state.Files[i].Modified == nil {
+			d.state.Files[i].Modified = d.state.Files[i].Created
+		}
+	}
+
+}
+
+func (d *Desktop) assignFileIDs() error {
+	var err error
+
+	for i := range d.state.Files {
+		if d.state.Files[i].ID == "" {
+			path := filepath.Join(d.path, d.state.Files[i].Name)
+			if _, err := os.Stat(path); err != nil {
+				log.Printf("file %s not found \n", d.state.Files[i].Name)
+				continue
+			}
+
+			d.state.Files[i].ID, err = d.newID()
+			if err != nil {
+				return err
+			}
+
+			newPath := filepath.Join(d.path, d.state.Files[i].ID)
+
+			err := os.Rename(path, newPath)
+			if err != nil {
+				log.Print("cannot rename file ", path, " to ", newPath)
+				d.state.Files[i].ID = ""
+			}
+		}
+	}
+
+	for i := 0; i < len(d.state.Files); {
+		if d.state.Files[i].ID == "" {
+			copy(d.state.Files[i:], d.state.Files[i+1:])
+			d.state.Files = d.state.Files[:len(d.state.Files)-1]
+		} else {
+			i++
+		}
+	}
+
+	return nil
+}
+
 func (d *Desktop) HTTPUploadFile(w http.ResponseWriter, r *http.Request) {
 	file, hdr, err := r.FormFile("file")
 	if err != nil {
@@ -134,23 +222,27 @@ func (d *Desktop) HTTPUploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := d.createFile(hdr.Filename, file); err != nil {
+	id := fmt.Sprintf("%06X", d.state.FileIDCtr)
+	d.state.FileIDCtr++
+
+	if err := d.createFile(id, file); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	d.state.Files = append(d.state.Files, api.File{
+	f := api.File{
+		ID:   id,
 		Name: hdr.Filename,
 		X:    float64(d.state.CreateX),
 		Y:    float64(d.state.CreateY),
-	})
+	}
+
+	d.state.Files = append(d.state.Files, f)
 
 	d.SendMessage(&api.WSResponse{
 		Type: "create_file",
 		CreateFile: api.WSCreateFileResponse{
-			Name: hdr.Filename,
-			X:    float64(d.state.CreateX),
-			Y:    float64(d.state.CreateY),
+			File: f,
 		},
 	})
 
@@ -161,8 +253,14 @@ func (d *Desktop) HTTPUploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (d *Desktop) OpenFile(name string) (*os.File, error) {
-	return os.Open(filepath.Join(d.path, name))
+func (d *Desktop) OpenFile(id string) (*os.File, *api.File, error) {
+	info, err := d.GetFile(id)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	f, err := os.Open(filepath.Join(d.path, info.ID))
+	return f, info, err
 }
 
 func (d *Desktop) Messages() (ch chan *api.WSResponse, unsubscribe func()) {

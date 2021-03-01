@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
-	"time"
 
 	"github.com/chtisgit/retro-waste/api"
 	"github.com/chtisgit/retro-waste/internal/desktoper"
@@ -41,7 +40,7 @@ func New(dir, webroot string) (s *Server) {
 
 	s.m.Path("/api/desktop/{desktop}/ws").HandlerFunc(s.ws)
 	s.m.Path("/api/desktop/{desktop}/file").HandlerFunc(s.fileUpload).Methods(http.MethodPost)
-	s.m.Path("/api/desktop/{desktop}/file/{file}").HandlerFunc(s.fileDownload).Methods(http.MethodGet, http.MethodOptions)
+	s.m.Path("/api/desktop/{desktop}/file/{file}/download").HandlerFunc(s.fileDownload).Methods(http.MethodGet, http.MethodOptions)
 
 	return
 }
@@ -177,7 +176,7 @@ func (s *Server) fileDownload(w http.ResponseWriter, r *http.Request) {
 
 	v := mux.Vars(r)
 	id, ok := v["desktop"]
-	filename, ok2 := v["file"]
+	fileID, ok2 := v["file"]
 	if !ok || !ok2 {
 		http.NotFound(w, r)
 		return
@@ -189,7 +188,7 @@ func (s *Server) fileDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	f, err := dt.OpenFile(filename)
+	f, info, err := dt.OpenFile(fileID)
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -197,10 +196,9 @@ func (s *Server) fileDownload(w http.ResponseWriter, r *http.Request) {
 
 	defer f.Close()
 
-	w.Header().Add("Content-Disposition", "attachment; filename=\""+filename+"\"")
+	w.Header().Add("Content-Disposition", "attachment; filename=\""+info.Name+"\"")
 
-	// FIXME: modtime
-	http.ServeContent(w, r, "", time.Now(), f)
+	http.ServeContent(w, r, "", *info.Modified, f)
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
