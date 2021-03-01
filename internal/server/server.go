@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"sync"
 
 	"github.com/chtisgit/retro-waste/api"
 	"github.com/chtisgit/retro-waste/internal/desktoper"
@@ -22,6 +23,9 @@ type Server struct {
 	desktoper *desktoper.Desktoper
 
 	webroot string
+
+	wsClose chan struct{}
+	wsWait  sync.WaitGroup
 }
 
 // Server implements http.Handler
@@ -32,6 +36,7 @@ func New(dir, webroot string) (s *Server) {
 		m:         mux.NewRouter(),
 		webroot:   webroot,
 		desktoper: desktoper.New(dir),
+		wsClose:   make(chan struct{}),
 	}
 
 	s.m.Path("/").HandlerFunc(s.root)
@@ -45,7 +50,23 @@ func New(dir, webroot string) (s *Server) {
 	return
 }
 
+func (s *Server) StopWebsockets() {
+	close(s.wsClose)
+	s.wsWait.Wait()
+}
+
 func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
+	select {
+	case <-s.wsClose:
+		http.Error(w, "Server shutting down", http.StatusInternalServerError)
+		return
+	default:
+		break
+	}
+
+	s.wsWait.Add(1)
+	defer s.wsWait.Done()
+
 	v := mux.Vars(r)
 	id, ok := v["desktop"]
 	if !ok {
@@ -122,6 +143,9 @@ wsloop:
 				log.Println("ws: write error: ", err)
 				break wsloop
 			}
+		case <-s.wsClose:
+			log.Println("wsClose closed")
+			break wsloop
 		}
 	}
 

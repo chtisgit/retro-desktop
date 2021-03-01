@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/chtisgit/retro-waste/api"
 	"github.com/chtisgit/retro-waste/internal/server"
@@ -41,10 +45,35 @@ func main() {
 	}
 
 	s := server.New(c.SaveDir, c.WebRoot)
-	log.Printf("starting...")
 
-	err := http.ListenAndServe(c.Listen, s)
+	srv := http.Server{
+		Addr:    c.Listen,
+		Handler: s,
+	}
+
+	sigs := make(chan os.Signal, 1)
+
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigs
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		s.StopWebsockets()
+
+		if err := srv.Shutdown(ctx); err != nil {
+			srv.Close()
+		}
+
+	}()
+
+	err := srv.ListenAndServe()
 	if err != nil {
-		log.Fatal("listen failed:", err)
+		if err == http.ErrServerClosed {
+			log.Print("shutdown")
+		} else {
+			log.Fatal("listen failed: ", err)
+		}
 	}
 }
