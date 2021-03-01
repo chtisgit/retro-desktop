@@ -9,6 +9,8 @@ var global = {
 		elem: null,
 		startX: null,
 		startY: null,
+		x: null,
+		y: null,
 	},
 	lastClick: { x: 0, y: 0, ts: 0},
 	fileActions: {
@@ -321,9 +323,6 @@ document.addEventListener("dragstart", function(event) {
 	if (!event.target.classList.contains('file')) {
 		return;
 	}
-	if (navigator.userAgent.search("Firefox") !== -1) {
-		return;
-	}
 
 	// store a ref. on the dragged elem
 	var dragged = event.target;
@@ -335,6 +334,8 @@ document.addEventListener("dragstart", function(event) {
 
 	global.drag.startX = r.left - event.clientX;
 	global.drag.startY = r.top - event.clientY;
+	global.drag.x = global.drag.startX;
+	global.drag.y = global.drag.startY;
 }, false);
 
 function moveFile(id, x, y)
@@ -356,8 +357,8 @@ document.addEventListener("dragend", function(event) {
 	// reset the transparency
 	dragged.style.opacity = '';
 
-	var x = global.drag.startX+event.clientX;
-	var y = global.drag.startY+event.clientY;
+	var x = global.drag.startX+global.drag.x;
+	var y = global.drag.startY+global.drag.y;
 
 	global.ws.send(JSON.stringify({
 		type: 'move',
@@ -384,6 +385,8 @@ document.addEventListener("dragover", function( event ) {
 
 	dragged.style.left = global.drag.startX+event.clientX+'px';
 	dragged.style.top = global.drag.startY+event.clientY+'px';
+	global.drag.x = event.clientX;
+	global.drag.y = event.clientY;
 	
 }, false);
 
