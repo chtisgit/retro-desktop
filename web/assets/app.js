@@ -1,32 +1,37 @@
 
-var createPos = { x: 16, y : 16 };
-
-var ws;
-var desktopID;
-var cmFile = null;
-
-var files = [];
-
-var fileActions = {
-	'open': function(event) {
-		console.log('open file ');
+var global = {
+	ws: null,
+	createPos: { x: 16, y : 16 },
+	cmFile: null,
+	desktopID: null,
+	files: [],
+	drag: {
+		elem: null,
+		startX: null,
+		startY: null,
 	},
-	'download': function(event) {
-		if(cmFile === null) {
-			return;
-		}
-		console.log('download file ', cmFile);
-		downloadFile(cmFile);
-
+	lastClick: { x: 0, y: 0, ts: 0},
+	fileActions: {
+		'open': function(event) {
+			console.log('open file ');
+		},
+		'download': function(event) {
+			if(global.cmFile === null) {
+				return;
+			}
+			console.log('download file ', global.cmFile);
+			downloadFile(global.cmFile);
+	
+		},
+		'delete': function(event) {
+			console.log('delete file ');
+		},
 	},
-	'delete': function(event) {
-		console.log('delete file ');
-	},
-}
+};
 
 function doFileAction(action, event)
 {
-	var f = fileActions[action.substr(10)]
+	var f = global.fileActions[action.substr(10)]
 	if(!f) {
 		console.log('no such action');
 		return;
@@ -45,14 +50,12 @@ function fileSingleClickHandler(event)
 	console.log('single click: ', event.target);
 }
 
-
-var lastClick = { x: 0, y: 0, ts: 0};
 function fileClickHandler(event)
 {
 	var now = Date.now();
-	var last = lastClick.ts;
+	var last = global.lastClick.ts;
 
-	lastClick.ts = now;
+	global.lastClick.ts = now;
 
 	// double click 
 	if (now - last < 500) {
@@ -60,12 +63,12 @@ function fileClickHandler(event)
 		return;
 	}
 
-	lastClick.x = event.clientX;
-	lastClick.y = event.clientY;
+	global.lastClick.x = event.clientX;
+	global.lastClick.y = event.clientY;
 
 	setTimeout(function() {
-		if (now == lastClick.ts) {
-			lastClick.ts = 0;
+		if (now == global.lastClick.ts) {
+			global.lastClick.ts = 0;
 			fileSingleClickHandler(event);
 		}
 	}, 500);
@@ -90,7 +93,7 @@ function fileContextMenuHandler(event)
 	event.preventDefault();
 	var cm = document.getElementById('contextmenu');
 
-	cmFile = getFileIDFromDOM(event.target);
+	global.cmFile = getFileIDFromDOM(event.target);
 
 	cm.style.display = 'block';
 	cm.style.top = event.clientY+'px';
@@ -135,7 +138,7 @@ function iconByFilename(name)
 function downloadFile(filename) {
 	var e = document.createElement('a'); 
 	e.style.display = 'none';
-	e.setAttribute('href',  '/api/desktop/'+desktopID+'/file/'+filename+'/download'); 
+	e.setAttribute('href',  '/api/desktop/'+global.desktopID+'/file/'+filename+'/download'); 
 	document.body.appendChild(e); 
 	e.click(); 
 	document.body.removeChild(e); 
@@ -147,7 +150,7 @@ async function uploadFile(file, pos) {
 	formData.append('x', pos.x-24);
 	formData.append('y', pos.y-24);
 
-	var res = await fetch('/api/desktop/'+desktopID+'/file', {
+	var res = await fetch('/api/desktop/'+global.desktopID+'/file', {
 		method: 'POST',
 		body: formData,
 		cache: 'no-cache',
@@ -166,12 +169,12 @@ function createFile(file)
 	var y = file.y;
 
 	if(!x || !y) {
-		x = createPos.x;
-		y = createPos.y;
-		createPos.x += 96;
-		if (createPos.x + 96 > window.innerWidth) {
-			createPos.x = 16;
-			createPos.y += 96;
+		x = global.createPos.x;
+		y = global.createPos.y;
+		global.createPos.x += 96;
+		if (global.createPos.x + 96 > window.innerWidth) {
+			global.createPos.x = 16;
+			global.createPos.y += 96;
 		}
 	}
 
@@ -199,10 +202,12 @@ function createFile(file)
 	elem.appendChild(span);
 	document.getElementById('fileAnchor').appendChild(elem);
 
-	files.push({
+	/*
+	global.files.push({
 		id: file.id,
 		name: file.name,
 	});
+	*/
 }
 
 function dropHandler(ev)
@@ -243,7 +248,7 @@ function dropHandler(ev)
 
 function wsOpened(event)
 {
-	ws.send(JSON.stringify({ type: 'init' }));
+	global.ws.send(JSON.stringify({ type: 'init' }));
 }
 
 function wsMessage(event)
@@ -282,17 +287,14 @@ window.addEventListener('load', function () {
 		entry.addEventListener('click', cmActionHandler);
 	});
 
-	desktopID = window.location.href.substr(window.location.href.lastIndexOf('/')+1);
-	ws = new WebSocket(window.location.origin.replace('http', 'ws')+'/api/desktop/'+desktopID+'/ws');
-	ws.onopen = wsOpened;
-	ws.onmessage = wsMessage;
-	ws.onerror = wsError;
+	global.desktopID = window.location.href.substr(window.location.href.lastIndexOf('/')+1);
+	global.ws = new WebSocket(window.location.origin.replace('http', 'ws')+'/api/desktop/'+global.desktopID+'/ws');
+	global.ws.onopen = wsOpened;
+	global.ws.onmessage = wsMessage;
+	global.ws.onerror = wsError;
 
 });
 
-
-var startX, startY;
-var dragged = null;
 
 document.addEventListener("dragstart", function(event) {
 	if (!event.target.classList.contains('file')) {
@@ -303,16 +305,15 @@ document.addEventListener("dragstart", function(event) {
 	}
 
 	// store a ref. on the dragged elem
-	dragged = event.target;
+	var dragged = event.target;
+	global.drag.elem = dragged;
 	// make it half transparent
 	dragged.style.opacity = .5;
 
 	var r = dragged.getBoundingClientRect();
 
-	startX = r.left - event.clientX;
-	startY = r.top - event.clientY;
-	console.log('clientX: ', event.clientX, '  clientY: ', event.clientY);
-	console.log('start ', r.left, ' ', r.top);
+	global.drag.startX = r.left - event.clientX;
+	global.drag.startY = r.top - event.clientY;
 }, false);
 
 function moveFile(id, x, y)
@@ -327,16 +328,17 @@ function moveFile(id, x, y)
 }
 
 document.addEventListener("dragend", function(event) {
+	var dragged = global.drag.elem;
 	if (dragged === null)
 		return;
 
 	// reset the transparency
 	dragged.style.opacity = '';
 
-	var x = startX+event.clientX;
-	var y = startY+event.clientY;
+	var x = global.drag.startX+event.clientX;
+	var y = global.drag.startY+event.clientY;
 
-	ws.send(JSON.stringify({
+	global.ws.send(JSON.stringify({
 		type: 'move',
 		move: {
 			id: getFileIDFromDOM(dragged),
@@ -345,14 +347,7 @@ document.addEventListener("dragend", function(event) {
 		},
 	}));
 
-	console.log('clientX: ', event.clientX, '  clientY: ', event.clientY);
-	console.log('end ', startX+event.clientX, ' ', startY+event.clientY);
-	dragged = null;
-	return;
-
-	dragged.style.left = startX+event.clientX+'px';
-	dragged.style.top = startY+event.clientY+'px';
-
+	global.drag.elem = null;
 }, false);
 
 
@@ -360,11 +355,14 @@ document.addEventListener("dragend", function(event) {
 document.addEventListener("dragover", function( event ) {
 	// Standard-Aktion verhindern um das drop-Event zu erlauben
 	event.preventDefault();
+	
+	var dragged = global.drag.elem;
+	
 	if (dragged === null)
 		return;
 
-	dragged.style.left = startX+event.clientX+'px';
-	dragged.style.top = startY+event.clientY+'px';
+	dragged.style.left = global.drag.startX+event.clientX+'px';
+	dragged.style.top = global.drag.startY+event.clientY+'px';
 	
 }, false);
 
@@ -372,6 +370,6 @@ document.addEventListener("dragover", function( event ) {
 window.addEventListener('click', function(event) {
 	if(!event.target.classList.contains('contextmenu')) {
 		document.getElementById('contextmenu').style.display = 'none';
-		cmFile = null;
+		global.cmFile = null;
 	}
 });
