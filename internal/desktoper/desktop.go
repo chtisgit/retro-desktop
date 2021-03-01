@@ -80,52 +80,73 @@ func checkCoords(x, y float64) bool {
 	return x >= 0 && y >= 0 && x < 1920 && y < 1080
 }
 
-func (d *Desktop) Request(req *api.WSRequest) (res api.WSResponse) {
-	res.Type = req.Type
-
+func (d *Desktop) Request(req *api.WSRequest) (res *api.WSResponse) {
 	switch req.Type {
 	case "init":
+		res = &api.WSResponse{
+			Type: req.Type,
+		}
 		res.Init.Files = d.Files()
 	case "move":
 		if !checkCoords(req.Move.ToX, req.Move.ToY) {
-			res.Type = "error"
-			res.Error.ID = "coordinates-out-of-range"
-			res.Error.Text = "Coordinates out of range"
+			res = &api.WSResponse{
+				Type: "error",
+				Error: api.WSErrorResponse{
+					ID:   "coordinates-out-of-range",
+					Text: "Coordinates out of range",
+				},
+			}
 			return
 		}
 
 		if err := d.File(req.Move.ID, func(file *api.File, _ int) {
-			res.Move = req.Move
 			file.X = req.Move.ToX
 			file.Y = req.Move.ToY
 		}); err != nil {
 			// TODO: did we just assume the error?
-			res.Type = "error"
-			res.Error.ID = "file-not-found"
-			res.Error.Text = "Cannot move file with id '" + req.Move.ID + "' because it does not exist"
+			res = &api.WSResponse{
+				Type: "error",
+				Error: api.WSErrorResponse{
+					ID:   "file-not-found",
+					Text: "Cannot move file with id '" + req.Move.ID + "' because it does not exist",
+				},
+			}
 			return
 		}
 
-		d.SendMessage(&res)
+		d.SendMessage(&api.WSResponse{
+			Type: req.Type,
+			Move: req.Move,
+		})
 	case "delete_file":
 		if err := d.File(req.DeleteFile.ID, func(_ *api.File, i int) {
 			copy(d.state.Files[i:], d.state.Files[i+1:])
 			d.state.Files = d.state.Files[:len(d.state.Files)-1]
 		}); err != nil {
 			// TODO: did we just assume the error?
-			res.Type = "error"
-			res.Error.ID = "file-not-found"
-			res.Error.Text = "Cannot delete file with id '" + req.Move.ID + "' because it does not exist"
+			res = &api.WSResponse{
+				Type: "error",
+				Error: api.WSErrorResponse{
+					ID:   "file-not-found",
+					Text: "Cannot delete file with id '" + req.Move.ID + "' because it does not exist",
+				},
+			}
 			return
 		}
 
-		res.DeleteFile = req.DeleteFile
-		d.SendMessage(&res)
+		d.SendMessage(&api.WSResponse{
+			Type:       req.Type,
+			DeleteFile: req.DeleteFile,
+		})
 
 	default:
-		res.Type = "error"
-		res.Error.ID = "unkown-request-type"
-		res.Error.Text = "Unknown request type '" + req.Type + "'"
+		res = &api.WSResponse{
+			Type: "error",
+			Error: api.WSErrorResponse{
+				ID:   "unkown-request-type",
+				Text: "Unknown request type '" + req.Type + "'",
+			},
+		}
 	}
 
 	return

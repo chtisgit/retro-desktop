@@ -129,6 +129,9 @@ wsloop:
 			}
 
 			res := dt.Request(&req)
+			if res == nil {
+				break
+			}
 			if err := c.WriteJSON(res); err != nil {
 				log.Println("ws: write error: ", err)
 				break wsloop
