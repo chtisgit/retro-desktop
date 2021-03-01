@@ -245,11 +245,15 @@ func (d *Desktop) HTTPUploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	now := time.Now()
+
 	f := api.File{
-		ID:   id,
-		Name: hdr.Filename,
-		X:    x,
-		Y:    y,
+		ID:       id,
+		Name:     hdr.Filename,
+		X:        x,
+		Y:        y,
+		Created:  &now,
+		Modified: &now,
 	}
 
 	d.state.Files = append(d.state.Files, f)
