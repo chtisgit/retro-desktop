@@ -27,7 +27,8 @@ type Desktop struct {
 
 func (d *Desktop) Files() (files []api.File) {
 	d.filesLock.Lock()
-	files = d.state.Files
+	files = make([]api.File, len(d.state.Files))
+	copy(files, d.state.Files)
 	d.filesLock.Unlock()
 
 	return
