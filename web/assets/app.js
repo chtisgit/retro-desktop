@@ -40,17 +40,23 @@ var global = {
 	fileTypes: {},
 };
 
+function newAPI()
+{
+	return {
+		fileContentURL: fileContentURL,
+		fileDownloadURL: fileDownloadURL,
+	};
+}
+
 function openFile(id)
 {
 	var name = getFileName(id);
 	if(!id || !name) {
-		console.log('1');
 		return;
 	}
 
 	var p = name.lastIndexOf('.');
 	if (p === -1) {
-		console.log('2');
 		return;
 	}
 
@@ -58,15 +64,13 @@ function openFile(id)
 
 	var app = global.fileTypes[ext]
 	if(!app) {
-		console.log('3');
 		return;
 	}
 
-	app.start({
+	app.start(newAPI(), {
 		id: id,
 		name: name,
 	});
-	console.log('4');
 }
 
 function getFileName(id)
@@ -187,10 +191,18 @@ function iconByFilename(name)
 	}
 }
 
-function downloadFile(filename) {
+function fileDownloadURL(id) {
+	return '/api/desktop/'+global.desktopID+'/file/'+id+'/download';
+}
+
+function fileContentURL(id) {
+	return '/api/desktop/'+global.desktopID+'/file/'+id+'/content';
+}
+
+function downloadFile(id) {
 	var e = document.createElement('a'); 
 	e.style.display = 'none';
-	e.setAttribute('href',  '/api/desktop/'+global.desktopID+'/file/'+filename+'/download'); 
+	e.setAttribute('href', fileDownloadURL(id)); 
 	document.body.appendChild(e); 
 	e.click(); 
 	document.body.removeChild(e); 

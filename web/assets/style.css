@@ -17,6 +17,10 @@ body {
     background-color: #008080;
 }
 
+textarea {
+    resize: none;
+}
+
 #outer {
     width: 100%;
     height: 100%;

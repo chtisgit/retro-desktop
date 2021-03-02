@@ -38,12 +38,6 @@ function guiDragEndListener(event) {
 	if (dragged === null)
 		return;
 	gui.drag.elem = null;
-
-	var x = gui.drag.startX+gui.drag.x;
-	var y = gui.drag.startY+gui.drag.y;
-
-	gui.drag.elem.style.top = y+'px';
-	gui.drag.elem.style.left = x+'px';
 }
 
 
@@ -51,7 +45,6 @@ function guiDragOverListener(event) {
 	event.preventDefault();
 	
 	var dragged = gui.drag.elem;
-	
 	if (dragged === null)
 		return;
 
