@@ -15,7 +15,7 @@ var global = {
 	lastClick: { x: 0, y: 0, ts: 0},
 	fileActions: {
 		'open': function(event) {
-			console.log('open file ');
+			openFile(global.cmFile);
 		},
 		'download': function(event) {
 			if(global.cmFile === null) {
@@ -37,7 +37,47 @@ var global = {
 			}));
 		},
 	},
+	fileTypes: {},
 };
+
+function openFile(id)
+{
+	var name = getFileName(id);
+	if(!id || !name) {
+		console.log('1');
+		return;
+	}
+
+	var p = name.lastIndexOf('.');
+	if (p === -1) {
+		console.log('2');
+		return;
+	}
+
+	var ext = name.substr(p+1);
+
+	var app = global.fileTypes[ext]
+	if(!app) {
+		console.log('3');
+		return;
+	}
+
+	app.start({
+		id: id,
+		name: name,
+	});
+	console.log('4');
+}
+
+function getFileName(id)
+{
+	var f = document.getElementById('fileID-'+id);
+	if(!f) {
+		return null;
+	}
+
+	return f.getElementsByClassName('filename')[0].innerText;
+}
 
 function doFileAction(action, event)
 {
@@ -53,11 +93,13 @@ function doFileAction(action, event)
 function fileDoubleClickHandler(event)
 {
 	console.log('double click: ', event.target);
+	openFile(getFileIDFromDOM(event.target));
 }
 
 function fileSingleClickHandler(event)
 {
 	console.log('single click: ', event.target);
+	openFile(getFileIDFromDOM(event.target));
 }
 
 function fileClickHandler(event)
@@ -210,7 +252,7 @@ function createFile(file)
 
 	elem.appendChild(iconelem);
 	elem.appendChild(span);
-	document.getElementById('fileAnchor').appendChild(elem);
+	document.getElementById('file-anchor').appendChild(elem);
 
 	/*
 	global.files.push({
@@ -353,6 +395,7 @@ document.addEventListener("dragend", function(event) {
 	var dragged = global.drag.elem;
 	if (dragged === null)
 		return;
+	global.drag.elem = null;
 
 	// reset the transparency
 	dragged.style.opacity = '';
@@ -369,7 +412,6 @@ document.addEventListener("dragend", function(event) {
 		},
 	}));
 
-	global.drag.elem = null;
 }, false);
 
 

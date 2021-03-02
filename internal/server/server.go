@@ -46,6 +46,7 @@ func New(dir, webroot string) (s *Server) {
 	s.m.Path("/api/desktop/{desktop}/ws").HandlerFunc(s.ws)
 	s.m.Path("/api/desktop/{desktop}/file").HandlerFunc(s.fileUpload).Methods(http.MethodPost)
 	s.m.Path("/api/desktop/{desktop}/file/{file}/download").HandlerFunc(s.fileDownload).Methods(http.MethodGet, http.MethodOptions)
+	s.m.Path("/api/desktop/{desktop}/file/{file}/content").HandlerFunc(s.fileContent).Methods(http.MethodGet, http.MethodOptions)
 
 	return
 }
@@ -199,9 +200,7 @@ func (s *Server) fileUpload(w http.ResponseWriter, r *http.Request) {
 	dt.Close()
 }
 
-func (s *Server) fileDownload(w http.ResponseWriter, r *http.Request) {
-	log.Println("fileDownload")
-
+func (s *Server) dl(w http.ResponseWriter, r *http.Request, attachment bool) {
 	v := mux.Vars(r)
 	id, ok := v["desktop"]
 	fileID, ok2 := v["file"]
@@ -225,9 +224,21 @@ func (s *Server) fileDownload(w http.ResponseWriter, r *http.Request) {
 
 	defer f.Close()
 
-	w.Header().Add("Content-Disposition", "attachment; filename=\""+info.Name+"\"")
+	if attachment {
+		w.Header().Add("Content-Disposition", "attachment; filename=\""+info.Name+"\"")
+	}
 
 	http.ServeContent(w, r, "", *info.Modified, f)
+}
+
+func (s *Server) fileDownload(w http.ResponseWriter, r *http.Request) {
+	log.Println("fileDownload")
+	s.dl(w, r, true)
+}
+
+func (s *Server) fileContent(w http.ResponseWriter, r *http.Request) {
+	log.Println("fileContent")
+	s.dl(w, r, false)
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
