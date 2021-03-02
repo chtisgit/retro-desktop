@@ -196,6 +196,7 @@ func (s *Server) fileUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dt.HTTPUploadFile(w, r)
+	dt.Close()
 }
 
 func (s *Server) fileDownload(w http.ResponseWriter, r *http.Request) {
@@ -214,6 +215,7 @@ func (s *Server) fileDownload(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	defer dt.Close()
 
 	f, info, err := dt.OpenFile(fileID)
 	if err != nil {
