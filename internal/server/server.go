@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/chtisgit/retro-waste/api"
-	"github.com/chtisgit/retro-waste/internal/desktoper"
+	"github.com/chtisgit/retro-desktop/api"
+	"github.com/chtisgit/retro-desktop/internal/desktoper"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 )

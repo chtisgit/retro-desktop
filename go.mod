@@ -1,4 +1,4 @@
-module github.com/chtisgit/retro-waste
+module github.com/chtisgit/retro-desktop
 
 go 1.15
 

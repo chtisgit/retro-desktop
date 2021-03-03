@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/chtisgit/retro-waste/api"
-	"github.com/chtisgit/retro-waste/internal/server"
+	"github.com/chtisgit/retro-desktop/api"
+	"github.com/chtisgit/retro-desktop/internal/server"
 )
 
 func checkDir(path string) bool {

@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/chtisgit/retro-waste/api"
+	"github.com/chtisgit/retro-desktop/api"
 )
 
 type Desktop struct {

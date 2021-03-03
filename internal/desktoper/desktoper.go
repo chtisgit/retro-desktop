@@ -9,7 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/chtisgit/retro-waste/api"
+	"github.com/chtisgit/retro-desktop/api"
 )
 
 // Desktoper manages active desktops
