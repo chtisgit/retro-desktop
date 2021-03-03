@@ -47,7 +47,7 @@ function editorRead(reader, buffers, cb)
                 return val.length;
             }).reduce(function(acc, val) {
                 return acc+val;
-            });
+            }, 0);
             var data = new Uint8Array(len);
             buffers.forEach(function(val) {
                 data.set(val);
