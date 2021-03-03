@@ -153,14 +153,32 @@ func (d *Desktop) Request(req *api.WSRequest) (res *api.WSResponse) {
 }
 
 func (d *Desktop) SendMessage(msg *api.WSResponse) {
+	// take snapshot of d.subs
 	d.msgLock.Lock()
+	subs := make([]chan *api.WSResponse, len(d.subs))
+	copy(subs, d.subs)
+	d.msgLock.Unlock()
 
 	log.Printf("Send message (type %s) to %d receivers", msg.Type, len(d.subs))
-	for i := range d.subs {
-		d.subs[i] <- msg
+
+	timeout := time.NewTimer(10 * time.Second)
+	timeoutCh := make(chan struct{})
+	go func() {
+		<-timeout.C
+		close(timeoutCh)
+	}()
+
+	for i := range subs {
+		go func(sub chan<- *api.WSResponse) {
+			select {
+			case sub <- msg:
+				break
+			case <-timeoutCh:
+				log.Println("Send timed out on channel after 10s")
+			}
+		}(subs[i])
 	}
 
-	d.msgLock.Unlock()
 }
 
 func (d *Desktop) createFile(name string, src io.ReadSeeker) error {
@@ -336,15 +354,6 @@ func (d *Desktop) Messages() (ch chan *api.WSResponse, unsubscribe func()) {
 				copy(d.subs[i:], d.subs[i+1:])
 				d.subs = d.subs[:len(d.subs)-1]
 				break
-			}
-		}
-
-		// drain channel
-		for {
-			select {
-			case <-ch:
-			default:
-				return
 			}
 		}
 	}

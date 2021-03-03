@@ -83,14 +83,16 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 	defer dt.Close()
 
 	log.Print("ws request: ", r.RequestURI)
+
 	c, err := s.upg.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("ws: upgrade error:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 	defer c.Close()
+
+	log.Print("ws opened by ", c.RemoteAddr())
 
 	reqs := make(chan api.WSRequest, 1)
 	msgs, unsub := dt.Messages()
