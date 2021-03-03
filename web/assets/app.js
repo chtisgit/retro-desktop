@@ -1,6 +1,7 @@
 
 var global = {
 	ws: null,
+	wsGood: false,
 	createPos: { x: 16, y : 16 },
 	cmFile: null,
 	desktopID: null,
@@ -323,6 +324,7 @@ function dropHandler(ev)
 function wsOpened(event)
 {
 	global.ws.send(JSON.stringify({ type: 'init' }));
+	global.wsGood = true;
 }
 
 function wsMessage(event)
@@ -349,6 +351,8 @@ function wsMessage(event)
 	case 'error':
 		console.log('backend error: ', res.error.text);
 		break;
+	case 'ping':
+		break;
 	default:
 		console.log('what is : ', res.type);
 	}
@@ -356,6 +360,7 @@ function wsMessage(event)
 
 function wsError(event)
 {
+	global.wsGood = false;
 	console.error(event);
 }
 
@@ -369,6 +374,12 @@ window.addEventListener('load', function () {
 	global.ws.onopen = wsOpened;
 	global.ws.onmessage = wsMessage;
 	global.ws.onerror = wsError;
+
+	window.setInterval(function() {
+		if (!global.wsGood) 
+			return;
+		global.ws.send(JSON.stringify({ type: 'ping' }));
+	}, 20000);
 
 });
 

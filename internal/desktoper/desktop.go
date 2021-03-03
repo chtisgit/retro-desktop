@@ -82,6 +82,10 @@ func checkCoords(x, y float64) bool {
 
 func (d *Desktop) Request(req *api.WSRequest) (res *api.WSResponse) {
 	switch req.Type {
+	case "ping":
+		res = &api.WSResponse{
+			Type: req.Type,
+		}
 	case "init":
 		res = &api.WSResponse{
 			Type: req.Type,
