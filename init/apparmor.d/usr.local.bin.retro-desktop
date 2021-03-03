@@ -1,0 +1,14 @@
+#include <tunables/global>
+
+/usr/local/bin/retro-desktop {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+  #include <abstractions/openssl>
+
+  /srv/retro-desktop rw,
+  /srv/retro-desktop/** rw,
+
+  /tmp rw,
+  /tmp/** rw,
+}
+

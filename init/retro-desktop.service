@@ -1,0 +1,18 @@
+[Unit]
+Description=Retro Desktop Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/retro-desktop -listen 127.0.0.1:9007 -d /srv/retro-desktop/desktops -webroot /srv/retro-desktop/webroot
+Restart=on-failure
+RestartSec=120
+#Restart=never
+User=retro-desktop
+Group=retro-desktop
+StandardOutput=syslog
+StandardError=syslog
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
