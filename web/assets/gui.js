@@ -151,6 +151,11 @@ function guiMaximizeButtonMouseUpHandler(event)
 
 function guiCreateWindow(opts)
 {
+	if (global && global.isMobile) {
+		opts.maximized = true;
+		opts.noMaximizeButton = true;
+	}
+
 	var win = document.createElement('div');
 	var tb = document.createElement('div');
 	var title = document.createElement('span');
@@ -166,7 +171,8 @@ function guiCreateWindow(opts)
    
 	tb.appendChild(title);
 	tb.appendChild(closeButton);
-	tb.appendChild(maximizeButton);
+	if (!opts.noMaximizeButton)
+		tb.appendChild(maximizeButton);
 	tb.draggable = true;
 
 	win.appendChild(tb);
@@ -186,6 +192,15 @@ function guiCreateWindow(opts)
 	win.style.width = (opts.width ? opts.width : 500) + 'px';
 	win.style.height = (opts.height ? opts.height : 400) + 'px';
 
+	if (opts.maximized) {
+		win.style.top = '0px';
+		win.style.left = '0px';
+		win.style.width = '100%';
+		win.style.height = '100%';
+		win.style.position = 'fixed';
+		win.classList.add('maximized');
+	}
+
 	win.style.zIndex = guiLargestZ();
 
 	document.getElementById('window-anchor').appendChild(win);
@@ -202,4 +217,3 @@ function guiInit()
 
 
 guiInit();
-
