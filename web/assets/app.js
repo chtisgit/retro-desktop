@@ -170,9 +170,9 @@ function fileContextMenuHandler(event)
 	global.cmFile = getFileIDFromDOM(event.target);
 
 	cm.style.display = 'block';
-	cm.style.top = (global.isMobile ? event.target.offsetTop + 48 : event.clientY)+'px';
-	cm.style.left = (global.isMobile ? event.target.offsetLeft + 48 : event.clientX)+'px';
-	cm.style.position = 'fixed';
+	cm.style.top = event.pageY+'px';
+	cm.style.left = event.pageX+'px';
+	//cm.style.position = 'fixed';
 
 	console.log('context menu: ', event.target);
 	console.log(event);
