@@ -25,7 +25,7 @@ function guiDragStartListener(event)
 
 	var r = dragged.getBoundingClientRect();
 
-	
+	dragged.style.cursor = 'move';
 	dragged.style.zIndex = guiLargestZ();
 
 	gui.drag.startX = r.left - event.clientX;
@@ -39,6 +39,7 @@ function guiDragEndListener(event)
 	var dragged = gui.drag.elem;
 	if (dragged === null)
 		return;
+	dragged.style.cursor = 'default';
 	gui.drag.elem = null;
 }
 
