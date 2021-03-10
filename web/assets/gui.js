@@ -111,9 +111,11 @@ function guiWindowToggleMaximize(win)
 	if (win.classList.contains('maximized')) {
 		restoreSizeFromClasses(win);
 		win.classList.remove('maximized');
+		win.getElementsByClassName('window-titlebar')[0].draggable = true;
 		return;
 	}
 
+	win.getElementsByClassName('window-titlebar')[0].draggable = false;
 	saveSizeAsClasses(win);
 	win.style.top = '0px';
 	win.style.left = '0px';
