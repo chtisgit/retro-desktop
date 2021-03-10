@@ -207,6 +207,8 @@ function guiCreateWindow(opts)
 
 	document.getElementById('window-anchor').appendChild(win);
 
+	makeResizable(win);
+
 	return win;
 }
 
@@ -217,5 +219,56 @@ function guiInit()
 	window.addEventListener('dragend', guiDragEndListener);
 }
 
+function within(mx, my, x, y, w, h)
+{
+	return mx >= x && my >= y && mx <= x+w && my <= y+h;
+}
+
+
+function makeResizable(p)
+{
+	var startX, startY, startWidth, startHeight;
+	p.addEventListener('mousedown', function(e) {
+		startX = e.clientX;
+		startY = e.clientY;
+
+		var x = p.offsetLeft+p.offsetWidth-20;
+		var y = p.offsetTop+p.offsetHeight-20;
+		
+		var dir = '';
+
+		if(within(startX, startY, p.offsetLeft, p.offsetTop+p.offsetHeight-8, p.offsetWidth, 16)) {
+			dir = 's';
+		}
+
+		if(within(startX, startY, p.offsetLeft+p.offsetWidth-8, p.offsetTop, 16, p.offsetHeight)) {
+			dir += 'e';
+		}
+
+		if(dir === '') {
+			return;
+		}
+
+		p.style.cursor = dir+'-resize';
+
+		console.log('mousedown listener');
+		startWidth = parseInt(document.defaultView.getComputedStyle(p).width, 10);
+		startHeight = parseInt(document.defaultView.getComputedStyle(p).height, 10);
+		var doDrag = function(e) {
+			if(dir.endsWith('e'))
+				p.style.width = Math.max(300, startWidth + e.clientX - startX) + 'px';
+			if(dir.startsWith('s'))
+				p.style.height = Math.max(300, startHeight + e.clientY - startY) + 'px';			
+		};
+		var stopDrag = function(e) {
+			window.removeEventListener('mousemove', doDrag, false);
+			window.removeEventListener('mouseup', stopDrag, false);
+			p.style.cursor = 'default';
+		};
+
+		window.addEventListener('mousemove', doDrag, false);
+		window.addEventListener('mouseup', stopDrag, false);		
+	}, false);
+}
 
 guiInit();
