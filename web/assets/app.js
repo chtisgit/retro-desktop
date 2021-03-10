@@ -25,7 +25,19 @@ var global = {
 			}
 			console.log('download file ', global.cmFile);
 			downloadFile(global.cmFile);
-	
+		},
+		'copy-link': function(event) {
+			if(global.cmFile === null){
+				return;
+			}
+
+			const el = document.createElement('textarea');
+			el.value = 'https://' + window.location.host + fileDownloadURL(global.cmFile);
+			document.body.appendChild(el);
+			//el.style.visibility = 'hidden';
+			el.select();
+			document.execCommand('copy');
+			document.body.removeChild(el);
 		},
 		'delete': function(event) {
 			if(global.cmFile === null) {
