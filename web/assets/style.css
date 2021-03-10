@@ -141,3 +141,26 @@ textarea {
     color: black;
     text-align: center;
 }
+
+#disconnected-layer {
+    z-index: 10000;
+    background: rgba(0, 0, 0, 0.7);
+    position: fixed;
+    left: 0px;
+    top: 0px;
+    right: 0px;
+    bottom: 0px;
+    display: none;
+}
+
+.middiag {
+    color: white;
+    text-align: center;
+    font-size: 24pt;
+    width: 350px;
+    height: 300px;
+    margin: 0;
+    position:absolute;
+    left: calc(50% - 175px);
+    top: calc(50% - 150px);
+}

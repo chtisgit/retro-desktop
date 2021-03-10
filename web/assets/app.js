@@ -63,6 +63,17 @@ function newAPI()
 	};
 }
 
+function showDisconnectedLayer()
+{
+	console.log('showDisconnectedLayer');
+	var x = document.getElementById('disconnected-layer');
+	x.style.display = 'block';
+	x.style.zIndex = Array.from(document.getElementsByClassName('window'))
+		.reduce(function(prev, cur) {
+			return Math.max(prev, cur);
+		}, x.style.zIndex);
+}
+
 function openFile(id)
 {
 	var name = getFileName(id);
@@ -404,6 +415,7 @@ function wsError(event)
 {
 	global.wsGood = false;
 	console.error(event);
+	showDisconnectedLayer();
 }
 
 window.addEventListener('load', function () {
@@ -416,7 +428,7 @@ window.addEventListener('load', function () {
 	global.ws.onopen = wsOpened;
 	global.ws.onmessage = wsMessage;
 	global.ws.onerror = wsError;
-
+	global.ws.onclose = wsError;
 	window.setInterval(function() {
 		if (!global.wsGood) 
 			return;
