@@ -86,7 +86,7 @@ function openFile(id)
 		return;
 	}
 
-	var ext = name.substr(p+1);
+	var ext = name.substr(p+1).toLowerCase();
 
 	var app = global.fileTypes[ext]
 	if(!app) {
