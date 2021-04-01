@@ -98,7 +98,7 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 	msgs, unsub := dt.Messages()
 	defer unsub()
 
-	go func() {
+	go func(reqs chan<- api.WSRequest) {
 		for {
 			var req api.WSRequest
 			t, p, err := c.ReadMessage()
@@ -117,9 +117,15 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			reqs <- req
+			select {
+			case reqs <- req:
+				break
+			case <-s.wsClose:
+				close(reqs)
+				return
+			}
 		}
-	}()
+	}(reqs)
 
 wsloop:
 	for {
