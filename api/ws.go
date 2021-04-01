@@ -21,23 +21,25 @@ type File struct {
 }
 
 type WSRequest struct {
-	Type string `json:"type"`
+	Type    string `json:"type"`
+	Desktop string `json:"desktop"`
 
 	Move       WSMove       `json:"move"`
 	DeleteFile WSDeleteFile `json:"delete_file"`
 }
 
 type WSResponse struct {
-	Type string `json:"type"`
+	Type    string `json:"type"`
+	Desktop string `json:"desktop"`
 
-	Init       WSInitResponse       `json:"init"`
+	Open       WSOpenResponse       `json:"open"`
 	CreateFile WSCreateFileResponse `json:"create_file"`
 	DeleteFile WSDeleteFile         `json:"delete_file"`
 	Move       WSMove               `json:"move"`
 	Error      WSErrorResponse      `json:"error"`
 }
 
-type WSInitResponse struct {
+type WSOpenResponse struct {
 	Files []File `json:"files"`
 }
 

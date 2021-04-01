@@ -82,19 +82,17 @@ func checkCoords(x, y float64) bool {
 
 func (d *Desktop) Request(req *api.WSRequest) (res *api.WSResponse) {
 	switch req.Type {
-	case "ping":
+	case "open":
 		res = &api.WSResponse{
-			Type: req.Type,
+			Type:    req.Type,
+			Desktop: d.name,
 		}
-	case "init":
-		res = &api.WSResponse{
-			Type: req.Type,
-		}
-		res.Init.Files = d.Files()
+		res.Open.Files = d.Files()
 	case "move":
 		if !checkCoords(req.Move.ToX, req.Move.ToY) {
 			res = &api.WSResponse{
-				Type: "error",
+				Type:    "error",
+				Desktop: d.name,
 				Error: api.WSErrorResponse{
 					ID:   "coordinates-out-of-range",
 					Text: "Coordinates out of range",
@@ -109,7 +107,8 @@ func (d *Desktop) Request(req *api.WSRequest) (res *api.WSResponse) {
 		}); err != nil {
 			// TODO: did we just assume the error?
 			res = &api.WSResponse{
-				Type: "error",
+				Type:    "error",
+				Desktop: d.name,
 				Error: api.WSErrorResponse{
 					ID:   "file-not-found",
 					Text: "Cannot move file with id '" + req.Move.ID + "' because it does not exist",
@@ -119,8 +118,9 @@ func (d *Desktop) Request(req *api.WSRequest) (res *api.WSResponse) {
 		}
 
 		d.SendMessage(&api.WSResponse{
-			Type: req.Type,
-			Move: req.Move,
+			Type:    req.Type,
+			Desktop: d.name,
+			Move:    req.Move,
 		})
 	case "delete_file":
 		if err := d.File(req.DeleteFile.ID, func(_ *api.File, i int) {
@@ -129,7 +129,8 @@ func (d *Desktop) Request(req *api.WSRequest) (res *api.WSResponse) {
 		}); err != nil {
 			// TODO: did we just assume the error?
 			res = &api.WSResponse{
-				Type: "error",
+				Type:    "error",
+				Desktop: d.name,
 				Error: api.WSErrorResponse{
 					ID:   "file-not-found",
 					Text: "Cannot delete file with id '" + req.Move.ID + "' because it does not exist",
@@ -140,12 +141,14 @@ func (d *Desktop) Request(req *api.WSRequest) (res *api.WSResponse) {
 
 		d.SendMessage(&api.WSResponse{
 			Type:       req.Type,
+			Desktop:    d.name,
 			DeleteFile: req.DeleteFile,
 		})
 
 	default:
 		res = &api.WSResponse{
-			Type: "error",
+			Type:    "error",
+			Desktop: d.name,
 			Error: api.WSErrorResponse{
 				ID:   "unkown-request-type",
 				Text: "Unknown request type '" + req.Type + "'",

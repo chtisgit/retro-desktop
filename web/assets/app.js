@@ -45,6 +45,7 @@ var global = {
 			}
 			global.ws.send(JSON.stringify({
 				type: 'delete_file',
+				desktop: global.desktopID,
 				delete_file: {
 					id: global.cmFile,
 				}
@@ -376,7 +377,7 @@ function dropHandler(ev)
 
 function wsOpened(event)
 {
-	global.ws.send(JSON.stringify({ type: 'init' }));
+	global.ws.send(JSON.stringify({ type: 'open', desktop: global.desktopID }));
 	global.wsGood = true;
 }
 
@@ -387,8 +388,8 @@ function wsMessage(event)
 	console.log('wsMessage');
 
 	switch(res.type){
-	case 'init':
-		res.init.files.forEach(function(file) {
+	case 'open':
+		res.open.files.forEach(function(file) {
 			createFile(file);
 		});
 		break;
@@ -424,7 +425,7 @@ window.addEventListener('load', function () {
 	});
 
 	global.desktopID = window.location.href.substr(window.location.href.lastIndexOf('/')+1);
-	global.ws = new WebSocket(window.location.origin.replace('http', 'ws')+'/api/desktop/'+global.desktopID+'/ws');
+	global.ws = new WebSocket(window.location.origin.replace('http', 'ws')+'/api/ws');
 	global.ws.onopen = wsOpened;
 	global.ws.onmessage = wsMessage;
 	global.ws.onerror = wsError;
@@ -497,6 +498,7 @@ document.addEventListener("dragend", function(event) {
 
 	global.ws.send(JSON.stringify({
 		type: 'move',
+		desktop: global.desktopID,
 		move: {
 			id: getFileIDFromDOM(dragged),
 			toX: x,

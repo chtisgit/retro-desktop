@@ -41,7 +41,7 @@ func main() {
 	flag.Parse()
 
 	if !checkDirs(c.SaveDir, c.WebRoot) {
-		log.Fatalln("set -d and -webroot to existing directories")
+		log.Fatalln("fatal error: set -d and -webroot to existing directories")
 	}
 
 	s := server.New(c.SaveDir, c.WebRoot)
@@ -57,6 +57,8 @@ func main() {
 
 	go func() {
 		<-sigs
+
+		log.Println("app: signal received")
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
@@ -71,9 +73,9 @@ func main() {
 	err := srv.ListenAndServe()
 	if err != nil {
 		if err == http.ErrServerClosed {
-			log.Print("shutdown")
+			log.Print("app: shutdown")
 		} else {
-			log.Fatal("listen failed: ", err)
+			log.Fatal("app: listen failed: ", err)
 		}
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"reflect"
 	"sync"
 
 	"github.com/chtisgit/retro-desktop/api"
@@ -43,7 +44,7 @@ func New(dir, webroot string) (s *Server) {
 	s.m.Path("/d/{desktop:[A-Za-z0-9_-]+}").HandlerFunc(s.desktop)
 	s.m.PathPrefix("/assets/").Handler(http.FileServer(http.Dir(s.webroot)))
 
-	s.m.Path("/api/desktop/{desktop}/ws").HandlerFunc(s.ws)
+	s.m.Path("/api/ws").HandlerFunc(s.ws)
 	s.m.Path("/api/desktop/{desktop}/file").HandlerFunc(s.fileUpload).Methods(http.MethodPost)
 	s.m.Path("/api/desktop/{desktop}/file/{file}/download").HandlerFunc(s.fileDownload).Methods(http.MethodGet, http.MethodOptions)
 	s.m.Path("/api/desktop/{desktop}/file/{file}/content").HandlerFunc(s.fileContent).Methods(http.MethodGet, http.MethodOptions)
@@ -68,19 +69,12 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 	s.wsWait.Add(1)
 	defer s.wsWait.Done()
 
-	v := mux.Vars(r)
-	id, ok := v["desktop"]
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-
-	dt, err := s.desktoper.OpenDesktop(id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer dt.Close()
+	desktops := make(map[string]*desktoper.Desktop)
+	defer func() {
+		for _, dt := range desktops {
+			dt.Close()
+		}
+	}()
 
 	log.Print("ws request: ", r.RequestURI)
 
@@ -95,9 +89,6 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 	log.Print("ws opened by ", c.RemoteAddr())
 
 	reqs := make(chan api.WSRequest, 1)
-	msgs, unsub := dt.Messages()
-	defer unsub()
-
 	go func(reqs chan<- api.WSRequest) {
 		for {
 			var req api.WSRequest
@@ -127,35 +118,88 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		}
 	}(reqs)
 
+	subber := desktoper.NewSubscriber()
+	defer subber.UnsubscribeAll()
+
+	reqsCase := reflect.SelectCase{
+		Dir:  reflect.SelectRecv,
+		Chan: reflect.ValueOf(reqs),
+	}
+	wsCloseCase := reflect.SelectCase{
+		Dir:  reflect.SelectRecv,
+		Chan: reflect.ValueOf(s.wsClose),
+	}
+
 wsloop:
 	for {
-		select {
-		case req, more := <-reqs:
+		channels := append(subber.Messages(), reqsCase, wsCloseCase)
+		chosen, recv, more := reflect.Select(channels)
+		if !more {
+			channels[chosen].Chan = reflect.Zero(reflect.TypeOf(channels[chosen].Chan))
+		}
+
+		if chosen < len(channels)-2 { // a desktop message channel
 			if !more {
-				log.Printf("ws: error: reqs closed unexpectedly")
-				reqs = nil
+				log.Printf("ws: error: msgs closed unexpectedly")
 				break wsloop
 			}
 
-			res := dt.Request(&req)
-			if res == nil {
-				break
-			}
-			if err := c.WriteJSON(res); err != nil {
-				log.Println("ws: write error: ", err)
-				break wsloop
-			}
-		case msg, more := <-msgs:
-			if !more {
-				log.Printf("ws: error: msgs closed unexpectedly")
-				msgs = nil
-				break wsloop
-			}
+			// forward a message that is emitted on a desktop to the frontend
+
+			msg := recv.Interface().(*api.WSResponse)
+
 			if err := c.WriteJSON(msg); err != nil {
 				log.Println("ws: write error: ", err)
 				break wsloop
 			}
-		case <-s.wsClose:
+
+		} else if chosen == len(channels)-2 { // reqs channel
+			if !more {
+				log.Printf("ws: error: reqs closed unexpectedly")
+				break wsloop
+			}
+
+			req := recv.Interface().(api.WSRequest)
+
+			// process requests from the frontend
+			switch req.Type {
+			case "ping":
+				if err := c.WriteJSON(api.WSResponse{
+					Type: "ping",
+				}); err != nil {
+					log.Println("ws: write error: ", err)
+					break wsloop
+				}
+
+			case "open":
+				if err := subber.Subscribe(s.desktoper, req.Desktop); err != nil {
+					// TODO: send error
+					log.Println("ws: error: cannot open desktop")
+					break
+				}
+
+				fallthrough
+			default:
+				// pass the request to the specified desktop
+
+				dt, err := subber.Desktop(req.Desktop)
+				if err != nil {
+					// TODO: send error
+					log.Print("ws: error: request for desktop that is not open")
+					break
+				}
+
+				res := dt.Request(&req)
+				if res == nil {
+					break
+				}
+				if err := c.WriteJSON(res); err != nil {
+					log.Println("ws: write error: ", err)
+					break wsloop
+				}
+			}
+
+		} else if chosen == len(channels)-1 { // wsClose channel
 			log.Println("wsClose closed")
 			break wsloop
 		}
