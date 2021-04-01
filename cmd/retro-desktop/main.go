@@ -55,10 +55,14 @@ func main() {
 
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
+	shutdown := make(chan struct{})
+
 	go func() {
 		<-sigs
-
 		log.Println("app: signal received")
+
+		close(shutdown)
+
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
@@ -68,6 +72,19 @@ func main() {
 			srv.Close()
 		}
 
+	}()
+
+	go func() {
+		t := time.NewTicker(5 * time.Minute)
+
+		for {
+			select {
+			case <-shutdown:
+				return
+			case <-t.C:
+			}
+			s.LogStatus()
+		}
 	}()
 
 	err := srv.ListenAndServe()

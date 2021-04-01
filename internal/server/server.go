@@ -299,3 +299,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.m.ServeHTTP(w, r)
 
 }
+
+func (s *Server) LogStatus() {
+	st := s.desktoper.Status()
+	if len(st) == 0 {
+		return
+	}
+
+	log.Printf("status: We have %d open desktops atm", len(st))
+	for i, line := range st {
+		log.Printf("status: [%2d] %s", i, line)
+	}
+}

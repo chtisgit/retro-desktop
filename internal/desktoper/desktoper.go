@@ -3,11 +3,14 @@ package desktoper
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/chtisgit/retro-desktop/api"
 )
@@ -36,6 +39,7 @@ func (d *Desktoper) newDesktop(name string) *Desktop {
 		name:      name,
 		path:      filepath.Join(d.path, name),
 		desktoper: d,
+		opened:    time.Now(),
 		state: api.Desktop{
 			CreateX: 16,
 			CreateY: 16,
@@ -110,4 +114,46 @@ func (d *Desktoper) CloseDesktop(name string) error {
 	}
 
 	return nil
+}
+
+type Status = []string
+
+func durationStr(d time.Duration) string {
+	if h := int(d.Hours()); h > 0 {
+		return fmt.Sprintf("%dh", h)
+	}
+	if m := int(d.Minutes()); m > 0 {
+		return fmt.Sprintf("%dm", m)
+	}
+	if s := int(d.Seconds()); s >= 5 {
+		return fmt.Sprintf("%ds", s)
+	}
+	return "just now"
+}
+
+func (d *Desktoper) Status() (st Status) {
+	d.mLock.Lock()
+
+	list := make([]*Desktop, len(d.m))
+	st = make([]string, len(d.m))
+
+	i := 0
+	for _, dt := range d.m {
+		list[i] = dt
+		i++
+	}
+
+	// sort by time open, longest open first
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].opened.After(list[j].opened)
+	})
+
+	now := time.Now()
+	for i, dt := range list {
+		st[i] = fmt.Sprintf("desktop=\"%s\" open-for=\"%s\" active-users=%d", dt.name, durationStr(now.Sub(dt.opened)), dt.activeUsers)
+	}
+
+	d.mLock.Unlock()
+
+	return
 }

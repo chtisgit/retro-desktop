@@ -20,6 +20,7 @@ type Desktop struct {
 	name        string
 	path        string
 	activeUsers int32
+	opened      time.Time
 
 	filesLock sync.Mutex
 	state     api.Desktop
