@@ -84,6 +84,7 @@ func (s *Subscriber) Messages() (cases []reflect.SelectCase) {
 			Dir:  reflect.SelectRecv,
 			Chan: reflect.ValueOf(sub.messages),
 		}
+		i++
 	}
 
 	return
