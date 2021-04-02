@@ -7,6 +7,7 @@ var global = {
 	cmFile: null,
 	desktopID: null,
 	files: [],
+	wsMessageHandlers: [],
 	drag: {
 		elem: null,
 		startX: null,
@@ -14,6 +15,7 @@ var global = {
 		x: null,
 		y: null,
 	},
+	openDesktops: {},
 	lastClick: { x: 0, y: 0, ts: 0},
 	fileActions: {
 		'open': function(event) {
@@ -43,11 +45,12 @@ var global = {
 			if(global.cmFile === null) {
 				return;
 			}
+
 			global.ws.send(JSON.stringify({
 				type: 'delete_file',
-				desktop: global.desktopID,
+				desktop: getFileDesktop(global.cmFile),
 				delete_file: {
-					id: global.cmFile,
+					id: getFileID(global.cmFile),
 				}
 			}));
 		},
@@ -61,6 +64,8 @@ function newAPI()
 		isMobile: global.isMobile,
 		fileContentURL: fileContentURL,
 		fileDownloadURL: fileDownloadURL,
+		openDesktop: openDesktop,
+		closeDesktop: closeDesktop,
 	};
 }
 
@@ -75,10 +80,10 @@ function showDisconnectedLayer()
 		}, x.style.zIndex);
 }
 
-function openFile(id)
+function openFile(file)
 {
-	var name = getFileName(id);
-	if(!id || !name) {
+	var name = getFileName(file);
+	if(!name) {
 		return;
 	}
 
@@ -95,19 +100,51 @@ function openFile(id)
 	}
 
 	app.start(newAPI(), {
-		id: id,
+		id: getFileID(file),
+		desktop: getFileDesktop(file),
 		name: name,
 	});
 }
 
-function getFileName(id)
+function getAttributeFromClass(elem, prefix)
 {
-	var f = document.getElementById('fileID-'+id);
-	if(!f) {
-		return null;
+	var res = null;
+
+	elem.className.split(' ').forEach(function(cl) {
+		if (res) return;
+		if (cl.startsWith(prefix)) {
+			res = cl.substr(prefix.length);
+			return;
+		}
+	});
+	
+	return res;
+}
+
+function getFileID(file)
+{
+	if(file.classList.contains('filename') || file.classList.contains('icon')) {
+		file = file.parentElement;
+	}
+	
+	return getAttributeFromClass(file, 'fileID-');
+}
+
+function getFileDesktop(file)
+{
+	if(file.classList.contains('filename') || file.classList.contains('icon')) {
+		file = file.parentElement;
 	}
 
-	return f.getElementsByClassName('filename')[0].innerText;
+	return getAttributeFromClass(file, 'desktopID-');
+}
+
+function getFileName(file)
+{
+	var fn = file.getElementsByClassName('filename');
+	if(!fn || fn.length !== 1) return null;
+
+	return fn[0].innerText;
 }
 
 function doFileAction(action, event)
@@ -124,13 +161,13 @@ function doFileAction(action, event)
 function fileDoubleClickHandler(event)
 {
 	console.log('double click: ', event.target);
-	openFile(getFileIDFromDOM(event.target));
+	openFile(event.target);
 }
 
 function fileSingleClickHandler(event)
 {
 	console.log('single click: ', event.target);
-	openFile(getFileIDFromDOM(event.target));
+	openFile(event.target);
 }
 
 function fileClickHandler(event)
@@ -157,20 +194,6 @@ function fileClickHandler(event)
 	}, 500);
 }
 
-function getFileIDFromDOM(elem)
-{
-	if(elem.classList.contains('filename') || elem.classList.contains('icon')) {
-		return getFileIDFromDOM(elem.parentElement);
-	}
-
-	var s = elem.id;
-	if(!s || !s.startsWith('fileID-')) {
-		return null;
-	}
-
-	return s.substr(7)
-}
-
 function shortFilename(name) {
 	if (name.length < 20) {
 		return name;
@@ -191,7 +214,7 @@ function fileContextMenuHandler(event)
 	event.preventDefault();
 	var cm = document.getElementById('contextmenu');
 
-	global.cmFile = getFileIDFromDOM(event.target);
+	global.cmFile = event.target;
 
 	cm.style.display = 'block';
 	cm.style.top = event.pageY+'px';
@@ -235,12 +258,12 @@ function iconByFilename(name)
 	}
 }
 
-function fileDownloadURL(id) {
-	return '/api/desktop/'+global.desktopID+'/file/'+id+'/download';
+function fileDownloadURL(file) {
+	return '/api/desktop/'+file.desktop+'/file/'+file.id+'/download';
 }
 
-function fileContentURL(id) {
-	return '/api/desktop/'+global.desktopID+'/file/'+id+'/content';
+function fileContentURL(file) {
+	return '/api/desktop/'+file.desktop+'/file/'+file.id+'/content';
 }
 
 function downloadFile(id) {
@@ -268,7 +291,7 @@ async function uploadFile(file, pos) {
 	console.log(res);
 }
 
-function createFile(file)
+function createFile(file, desktop)
 {
 	var elem = document.createElement('div');
 	var iconelem = document.createElement('div');
@@ -286,7 +309,10 @@ function createFile(file)
 		}
 	}
 
-	elem.id = 'fileID-'+file.id;
+	if (desktop) {
+		elem.classList.add('desktopID-'+desktop);
+	}
+	elem.classList.add('fileID-'+file.id);
 	elem.classList.add('file');
 	elem.style.top = y + 'px';
 	elem.style.left = x + 'px';
@@ -319,24 +345,22 @@ function createFile(file)
 
 	elem.appendChild(iconelem);
 	elem.appendChild(span);
-	document.getElementById('file-anchor').appendChild(elem);
 
-	/*
-	global.files.push({
-		id: file.id,
-		name: file.name,
-	});
-	*/
+	return elem;
 }
 
-function deleteFile(id)
+function deleteFile(id, desktop)
 {
-	var f = document.getElementById('fileID-'+id);
-	if(!f) {
+	var f = document.getElementsByClassName('fileID-'+id);
+	if(!f || f.length === 0) {
 		return;
 	}
 
-	f.parentElement.removeChild(f);
+	Array.from(f).forEach(function(file) {
+		if(file.classList.contains('desktopID-'+desktop)){	
+			file.parentElement.removeChild(file);
+		}
+	});
 }
 
 function dropHandler(ev)
@@ -377,8 +401,34 @@ function dropHandler(ev)
 
 function wsOpened(event)
 {
-	global.ws.send(JSON.stringify({ type: 'open', desktop: global.desktopID }));
+	openDesktop(global.desktopID, rootWSHandler);
 	global.wsGood = true;
+}
+
+function openDesktop(desktop, handler) {
+	addWSMessageHandler(desktop, handler);
+
+	// keep track of open desktops, s.t. we only close them when all windows to a desktop are closed.
+	if (global.openDesktops[desktop]) {
+		global.openDesktops[desktop]++;
+	}else{
+		global.openDesktops[desktop] = 1;
+	}
+
+	global.ws.send(JSON.stringify({ type: 'open', desktop: desktop }));
+}
+
+function closeDesktop(desktop, handler) {
+	removeWSMessageHandler(desktop, handler);
+	
+	if (!global.openDesktops[desktop]) {
+		console.log('close of desktop that is not open ("'+desktop+'")');
+		return;
+	}
+
+	global.openDesktops[desktop]--;
+
+	// TODO: implement send close
 }
 
 function wsMessage(event)
@@ -387,20 +437,40 @@ function wsMessage(event)
 
 	console.log('wsMessage');
 
+	global.wsMessageHandlers.filter(function(e) {
+		return e.desktop === res.desktop;
+	}).forEach(function(e) {
+		setTimeout(function() {
+			e.handler(null, res);
+		}, 0);
+	});
+}
+
+function rootWSHandler(err, res) {
+	if (err) {
+		console.log('root ws handler error: ', err);
+		return;
+	}
+
+	if (res.desktop !== global.desktopID && res.desktop !== '') {
+		console.log('root ws handler received response for desktopID "'+res.desktop+'" which is not the root desktop.');
+		return;
+	}
+
 	switch(res.type){
 	case 'open':
 		res.open.files.forEach(function(file) {
-			createFile(file);
+			document.getElementById('file-anchor').appendChild(createFile(file, global.desktopID));
 		});
 		break;
 	case 'create_file':
-		createFile(res.create_file.file);
+		document.getElementById('file-anchor').appendChild(createFile(res.create_file.file, global.desktopID));
 		break;
 	case 'delete_file':
-		deleteFile(res.delete_file.id);
+		deleteFile(res.delete_file.id, res.desktop);
 		break;
 	case 'move':
-		moveFile(res.move.id, res.move.toX, res.move.toY);
+		moveFile(res.move.id, res.desktop, res.move.toX, res.move.toY);
 		break;
 	case 'error':
 		console.log('backend error: ', res.error.text);
@@ -410,6 +480,19 @@ function wsMessage(event)
 	default:
 		console.log('what is : ', res.type);
 	}
+}
+
+function addWSMessageHandler(desktop, handler) {
+	global.wsMessageHandlers.push({
+		desktop: desktop,
+		handler: handler,
+	});
+}
+
+function removeWSMessageHandler(desktop, handler) {
+	global.wsMessageHandlers = global.wsMessageHandlers.filter(function(e) {
+		return e.handler !== handler || e.desktop !== desktop;
+	})
 }
 
 function wsError(event)
@@ -451,7 +534,14 @@ document.addEventListener("dragstart", function(event) {
 	if (global.isMobile) {
 		return;
 	}
-	if (!event.target.classList.contains('file')) {
+	
+	var classes = event.target.classList;
+	if (!classes.contains('file') || classes.contains('explorer-file')) {
+		return;
+	}
+	var draggedDesktop = getFileDesktop(event.target);
+	if (draggedDesktop !== global.desktopID) {
+		console.log('draggedDesktop !== global.desktopID');
 		return;
 	}
 
@@ -469,19 +559,23 @@ document.addEventListener("dragstart", function(event) {
 	global.drag.y = global.drag.startY;
 }, false);
 
-function moveFile(id, x, y)
+function moveFile(id, desktop, x, y)
 {
 	if (global.isMobile) {
 		return;
 	}
 
-	var f = document.getElementById('fileID-'+id)
-	if(!f) {
+	var f = document.getElementsByClassName('fileID-'+id)
+	if(!f || f.length === 0) {
 		return;
 	}
 
-	f.style.left = x+'px';
-	f.style.top = y+'px';
+	Array.from(f).forEach(function(file) {
+		if(file.classList.contains('desktopID-'+desktop) && !file.classList.contains('explorer-file')) {
+			file.style.left = x+'px';
+			file.style.top = y+'px';
+		}
+	});
 }
 
 document.addEventListener("dragend", function(event) {
@@ -500,7 +594,7 @@ document.addEventListener("dragend", function(event) {
 		type: 'move',
 		desktop: global.desktopID,
 		move: {
-			id: getFileIDFromDOM(dragged),
+			id: getFileID(dragged),
 			toX: x,
 			toY: y,
 		},

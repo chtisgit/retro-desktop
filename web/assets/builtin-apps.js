@@ -1,4 +1,70 @@
 
+function explorerize(file)
+{
+    file.classList.add('explorer-file');
+    file.setAttribute('draggable', '');
+    return file;
+}
+
+var explorerApp = {
+    name: 'Explorer',
+    start: function(api, directory) {
+        var win = guiCreateWindow({
+            title: 'Explorer - ' + directory.name
+        });
+
+        var content = win.getElementsByClassName('window-content')[0];
+        var addressbar = document.createElement('input');
+        addressbar.type = 'text';
+        addressbar.value = '/'+directory.name;
+        addressbar.style.width = '100%';
+        addressbar.style.height = '24px';
+        
+        var filesArea = document.createElement('div');
+        filesArea.style.width = '100%';
+        filesArea.style.height = 'calc(100% - 24px)';
+        filesArea.style.backgroundColor = 'white';
+
+        content.appendChild(addressbar);
+        content.appendChild(filesArea);
+
+        api.openDesktop(directory.desktop, function(err, res) {
+            if (err) {
+                console.log('explorer error: ', err);
+                return;
+            }
+            
+            switch(res.type){
+            case 'open':
+                res.open.files.forEach(function(file) {
+                    filesArea.appendChild(explorerize(createFile(file, directory.desktop)));
+                });
+                break;
+            case 'create_file':
+                filesArea.appendChild(explorerize(createFile(res.create_file.file, directory.desktop)));
+                break;
+            case 'delete_file':
+                deleteFile(res.delete_file.id, directory.desktop);
+                break;
+            case 'move':
+                // ignore positions in explorer.
+                break;
+            case 'error':
+                console.log('backend error: ', res.error.text);
+                break;
+            case 'ping':
+                break;
+            default:
+                console.log('what is : ', res.type);
+            }
+        });
+    }
+}
+
+if (global) {
+    global.explorer = explorerApp;
+}
+
 var imagePreviewApp = {
     name: 'Image Preview',
     start: function(api, file){
@@ -10,7 +76,7 @@ var imagePreviewApp = {
 
         var img = document.createElement('img');
         img.alt = 'Image '+file.name;
-        img.src = api.fileContentURL(file.id);
+        img.src = api.fileContentURL(file);
         img.style.maxWidth = '100%';
         img.style.maxHeight = '100%';
 
@@ -28,7 +94,7 @@ var videoPreviewApp = {
         var content = win.getElementsByClassName('window-content')[0];
 
         var vid = document.createElement('video');
-        vid.src = api.fileContentURL(file.id);
+        vid.src = api.fileContentURL(file);
         vid.controls = 'yes';
         vid.setAttribute('autoplay', '');
 
@@ -79,7 +145,7 @@ var textEditorApp = {
         textarea.style.height = '100%';
         textarea.setAttribute('readonly', '');
 
-        fetch(api.fileContentURL(file.id), {
+        fetch(api.fileContentURL(file), {
             method: 'GET',
         }).then(function(res) {
             var reader = res.body.getReader()

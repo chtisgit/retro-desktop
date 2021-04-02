@@ -189,6 +189,9 @@ function guiCreateWindow(opts)
 	maximizeButton.addEventListener('mouseup', guiMaximizeButtonMouseUpHandler);
 	closeButton.addEventListener('mousedown', guiCloseButtonMouseDownHandler);
 	closeButton.addEventListener('mouseup', guiCloseButtonMouseUpHandler);
+	if (opts.onclose) {
+		closeButton.addEventListener('mouseup', opts.onclose);
+	}
 
 	win.style.top = (opts.y ? opts.y : 200) + 'px';
 	win.style.left = (opts.x ? opts.x : 200) + 'px';

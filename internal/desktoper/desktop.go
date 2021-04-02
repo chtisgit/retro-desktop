@@ -320,7 +320,8 @@ func (d *Desktop) HTTPUploadFile(w http.ResponseWriter, r *http.Request) {
 	d.state.Files = append(d.state.Files, f)
 
 	d.SendMessage(&api.WSResponse{
-		Type: "create_file",
+		Type:    "create_file",
+		Desktop: d.name,
 		CreateFile: api.WSCreateFileResponse{
 			File: f,
 		},

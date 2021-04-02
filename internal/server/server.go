@@ -172,7 +172,7 @@ wsloop:
 				}
 
 			case "open":
-				if err := subber.Subscribe(s.desktoper, req.Desktop); err != nil {
+				if err := subber.Subscribe(s.desktoper, req.Desktop); err != nil && err != desktoper.ErrAlreadySubscribed {
 					// TODO: send error
 					log.Println("ws: error: cannot open desktop")
 					break
