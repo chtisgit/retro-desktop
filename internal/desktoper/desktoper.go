@@ -60,12 +60,6 @@ func (d *Desktoper) newDesktop(name string) *Desktop {
 func (d *Desktoper) writeDesktop(name string, dt *Desktop) error {
 	d.backupDesktop(name)
 
-	// don't save empty desktops where a file was never uploaded
-	if len(dt.state.Files) == 0 && dt.state.FileIDCtr == 0 {
-		os.Remove(filepath.Join(d.path, name))
-		return nil
-	}
-
 	f, err := os.OpenFile(filepath.Join(d.path, name+".json"), os.O_WRONLY|os.O_TRUNC|os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
 		return err
