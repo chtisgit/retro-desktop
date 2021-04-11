@@ -338,6 +338,7 @@ function fileContentURL(file) {
 function downloadFile(file) {
 	var e = document.createElement('a'); 
 	e.style.display = 'none';
+	e.setAttribute('target', '_blank');
 	e.setAttribute('href', fileDownloadURL(fileInfo(file))); 
 	document.body.appendChild(e); 
 	e.click(); 
