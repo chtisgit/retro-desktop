@@ -15,6 +15,10 @@ import (
 	"github.com/chtisgit/retro-desktop/api"
 )
 
+var ErrDesktopExists = errors.New("desktop exists")
+var ErrDesktopNotFound = errors.New("desktop not found")
+var ErrDesktopCorrupt = errors.New("desktop corrupt")
+
 // Desktoper manages active desktops
 type Desktoper struct {
 	path string
@@ -53,6 +57,45 @@ func (d *Desktoper) newDesktop(name string) *Desktop {
 	return dt
 }
 
+func (d *Desktoper) writeDesktop(name string, dt *Desktop) error {
+	d.backupDesktop(name)
+
+	f, err := os.OpenFile(filepath.Join(d.path, name+".json"), os.O_WRONLY|os.O_TRUNC|os.O_CREATE|os.O_EXCL, 0644)
+	if err != nil {
+		return err
+	}
+
+	err = json.NewEncoder(f).Encode(dt.state)
+	f.Close()
+
+	if err != nil {
+		d.restoreDesktop(name)
+	}
+
+	return err
+}
+
+func (d *Desktoper) CreateDesktop(name string) error {
+	d.mLock.Lock()
+	defer d.mLock.Unlock()
+
+	log.Printf("Create Desktop %s\n", name)
+
+	_, ok := d.m[name]
+	if ok {
+		return ErrDesktopExists
+	}
+
+	dt := d.newDesktop(name)
+	err := d.writeDesktop(name, dt)
+
+	if err == nil {
+		d.m[name] = dt
+	}
+
+	return err
+}
+
 func (d *Desktoper) OpenDesktop(name string) (*Desktop, error) {
 	d.mLock.Lock()
 	defer d.mLock.Unlock()
@@ -65,18 +108,14 @@ func (d *Desktoper) OpenDesktop(name string) (*Desktop, error) {
 		d.m[name] = dt
 
 		f, err := os.Open(filepath.Join(d.path, name+".json"))
-		if err == nil {
-			if err := json.NewDecoder(f).Decode(&dt.state); err != nil {
-				f.Close()
-				os.Remove(f.Name())
-			} else {
-				f.Close()
+		if err != nil {
+			return nil, ErrDesktopNotFound
+		}
 
-				log.Print("legacy shit")
-				// deal with legacy desktops that didn't have IDs
-				dt.assignFileIDs()
-				dt.assignDates()
-			}
+		err = json.NewDecoder(f).Decode(&dt.state)
+		f.Close()
+		if err != nil {
+			return nil, ErrDesktopCorrupt
 		}
 	}
 
@@ -87,8 +126,17 @@ func (d *Desktoper) OpenDesktop(name string) (*Desktop, error) {
 	return dt, nil
 }
 
-func (d *Desktoper) CloseDesktop(name string) error {
+func (d *Desktoper) backupDesktop(name string) error {
+	path := filepath.Join(d.path, name+".json")
+	return os.Rename(path, path+".backup")
+}
 
+func (d *Desktoper) restoreDesktop(name string) error {
+	path := filepath.Join(d.path, name+".json")
+	return os.Rename(path+".backup", path)
+}
+
+func (d *Desktoper) CloseDesktop(name string) error {
 	d.mLock.Lock()
 	defer d.mLock.Unlock()
 
@@ -100,13 +148,10 @@ func (d *Desktoper) CloseDesktop(name string) error {
 	n := atomic.AddInt32(&dt.activeUsers, -1)
 	if n == 0 {
 		log.Print("Close Desktop ", name)
-		f, err := os.Create(filepath.Join(d.path, name+".json"))
+		err := d.writeDesktop(name, dt)
 		if err != nil {
-			return err
+			log.Printf("Error during writeDesktop: %s", err)
 		}
-
-		err = json.NewEncoder(f).Encode(dt.state)
-		f.Close()
 
 		delete(d.m, name)
 

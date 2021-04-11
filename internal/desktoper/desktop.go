@@ -1,6 +1,8 @@
 package desktoper
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -38,6 +40,14 @@ func (d *Desktop) Files() (files []api.File) {
 	d.filesLock.Unlock()
 
 	return
+}
+
+func (d *Desktop) CopyState() *api.Desktop {
+	d.filesLock.Lock()
+	state := d.state.Copy()
+	d.filesLock.Unlock()
+
+	return state
 }
 
 var ErrFileNotFound = errors.New("file not found")
@@ -81,6 +91,59 @@ func checkCoords(x, y float64) bool {
 	return x >= 0 && y >= 0 && x < 1920 && y < 1080
 }
 
+func randomStr(n int) (string, error) {
+	b := make([]byte, n)
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+
+	return base64.URLEncoding.EncodeToString(b)[:n], nil
+}
+
+func (d *Desktop) createDirectory(req *api.WSCreateDirectory) (res api.WSCreateDirectoryResponse, err error) {
+	if req.Type != "subdesktop" {
+		err = errors.New("unsupported directory type")
+		return
+	}
+
+	sid, err := randomStr(10)
+	if err != nil {
+		return
+	}
+
+	subdesktop := d.name + "+" + sid
+	err = d.desktoper.CreateDesktop(subdesktop)
+	if err != nil {
+		return
+	}
+
+	id, err := d.nextID()
+	if err != nil {
+		return
+	}
+
+	d.filesLock.Lock()
+	defer d.filesLock.Unlock()
+
+	now := time.Now()
+	res = api.File{
+		ID:   id,
+		Name: req.Name,
+		X:    req.X,
+		Y:    req.Y,
+		Directory: &api.DirInfo{
+			Type:    req.Type,
+			Desktop: subdesktop,
+		},
+		Created:  &now,
+		Modified: &now,
+	}
+
+	d.state.Files = append(d.state.Files, res)
+
+	return
+}
+
 func (d *Desktop) Request(req *api.WSRequest) (res *api.WSResponse) {
 	switch req.Type {
 	case "open":
@@ -88,7 +151,28 @@ func (d *Desktop) Request(req *api.WSRequest) (res *api.WSResponse) {
 			Type:    req.Type,
 			Desktop: d.name,
 		}
-		res.Open.Files = d.Files()
+
+		state := d.CopyState()
+		res.Open.Files = state.Files
+
+	case "create_directory":
+		dir, err := d.createDirectory(&req.CreateDirectory)
+		if err != nil {
+			res = &api.WSResponse{
+				Type:    "error",
+				Desktop: d.name,
+				Error: api.WSErrorResponse{
+					Text: err.Error(),
+				},
+			}
+			return
+		}
+
+		d.SendMessage(&api.WSResponse{
+			Type:            req.Type,
+			Desktop:         d.name,
+			CreateDirectory: dir,
+		})
 	case "move":
 		if !checkCoords(req.Move.ToX, req.Move.ToY) {
 			res = &api.WSResponse{
@@ -206,7 +290,7 @@ func (d *Desktop) createFile(name string, src io.ReadSeeker) error {
 	return err
 }
 
-func (d *Desktop) newID() (string, error) {
+func (d *Desktop) nextID() (string, error) {
 	if d.state.FileIDCtr == 16777215 {
 		return "", errors.New("no more file IDs")
 	}
@@ -242,7 +326,7 @@ func (d *Desktop) assignFileIDs() error {
 				continue
 			}
 
-			d.state.Files[i].ID, err = d.newID()
+			d.state.Files[i].ID, err = d.nextID()
 			if err != nil {
 				return err
 			}

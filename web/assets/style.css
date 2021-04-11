@@ -94,6 +94,15 @@ textarea {
     background-image: url('icons/richtext.gif');
 }
 
+.directory-icon {
+    background-size: 48px 48px;
+    background-image: url('icons/folder.gif');
+}
+
+.what-drive-icon {
+    background-size: 48px 48px;
+    background-image: url('icons/what_drive.gif');
+}
 
 #contextmenu {
     border: 2px outset grey;

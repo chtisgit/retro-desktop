@@ -28,13 +28,26 @@ var global = {
 			console.log('download file ', global.cmFile);
 			downloadFile(global.cmFile);
 		},
+		'descend': function(event) {
+			if(global.cmFile === null) {
+				return;
+			}
+
+			var subdesktop = getAttributeFromClass(global.cmFile, 'subdesktop-');
+			if(!subdesktop) {
+				return;
+			}
+
+			// TODO: descend without need for reload (reuse the open websocket).
+			window.location.href = '//' + window.location.host + '/d/' + subdesktop;
+		},
 		'copy-link': function(event) {
 			if(global.cmFile === null){
 				return;
 			}
 
 			const el = document.createElement('textarea');
-			el.value = 'https://' + window.location.host + fileDownloadURL(global.cmFile);
+			el.value = '//' + window.location.host + fileDownloadURL(fileInfo(global.cmFile));
 			document.body.appendChild(el);
 			//el.style.visibility = 'hidden';
 			el.select();
@@ -87,6 +100,18 @@ function openFile(file)
 		return;
 	}
 
+	if (file.classList.contains('directory')) {
+		if (!global.explorer) {
+			return;
+		}
+
+		global.explorer.start(newAPI(), {
+			desktop: getAttributeFromClass(file, 'subdesktop-'),
+			name: name,
+		});
+		return;
+	}
+
 	var p = name.lastIndexOf('.');
 	if (p === -1) {
 		return;
@@ -121,26 +146,48 @@ function getAttributeFromClass(elem, prefix)
 	return res;
 }
 
-function getFileID(file)
+function chooseFile(file)
 {
-	if(file.classList.contains('filename') || file.classList.contains('icon')) {
+	if(file.classList.contains('filename') || file.classList.contains('icon'))
 		file = file.parentElement;
-	}
+
+	if(file.classList.contains('file'))
+		return file;
 	
+	return null;
+}
+
+function fileInfo(file)
+{
+	var info = {};
+	info.id = getFileID(file);
+	if(!info.id) return null;
+	info.name = getFileName(file);
+	if(!info.name) return null;
+	info.desktop = getFileDesktop(file);
+	if(!info.desktop) return null;
+	return info;
+}
+
+function getFileID(file)
+{	
 	return getAttributeFromClass(file, 'fileID-');
 }
 
 function getFileDesktop(file)
 {
-	if(file.classList.contains('filename') || file.classList.contains('icon')) {
-		file = file.parentElement;
-	}
-
 	return getAttributeFromClass(file, 'desktopID-');
 }
 
 function getFileName(file)
 {
+	if(file.classList.contains('filename')){
+		return file.innerText;
+	}
+	if(file.classList.contains('icon')) {
+		file = file.parentElement;
+	}
+
 	var fn = file.getElementsByClassName('filename');
 	if(!fn || fn.length !== 1) return null;
 
@@ -158,16 +205,16 @@ function doFileAction(action, event)
 	f(event);
 }
 
-function fileDoubleClickHandler(event)
+function fileDoubleClickHandler(file)
 {
-	console.log('double click: ', event.target);
-	openFile(event.target);
+	console.log('double click: ', file);
+	openFile(file);
 }
 
-function fileSingleClickHandler(event)
+function fileSingleClickHandler(file)
 {
-	console.log('single click: ', event.target);
-	openFile(event.target);
+	console.log('single click: ', file);
+	openFile(file);
 }
 
 function fileClickHandler(event)
@@ -177,9 +224,14 @@ function fileClickHandler(event)
 
 	global.lastClick.ts = now;
 
+	// mess with target
+	var file = chooseFile(event.target);
+	if (!file)
+		return;
+
 	// double click 
 	if (now - last < 500) {
-		fileDoubleClickHandler(event);
+		fileDoubleClickHandler(file);
 		return;
 	}
 
@@ -189,7 +241,7 @@ function fileClickHandler(event)
 	setTimeout(function() {
 		if (now == global.lastClick.ts) {
 			global.lastClick.ts = 0;
-			fileSingleClickHandler(event);
+			fileSingleClickHandler(file);
 		}
 	}, 500);
 }
@@ -214,14 +266,29 @@ function fileContextMenuHandler(event)
 	event.preventDefault();
 	var cm = document.getElementById('contextmenu');
 
-	global.cmFile = event.target;
+	var file = chooseFile(event.target);
+	global.cmFile = file;
+	if (!file)
+		return;
 
 	cm.style.display = 'block';
 	cm.style.top = event.pageY+'px';
 	cm.style.left = event.pageX+'px';
 	//cm.style.position = 'fixed';
 
-	console.log('context menu: ', event.target);
+	Array.from(document.getElementsByClassName('cm-entry')).forEach(function(e) {
+		if (e.classList.contains('cm-file') && file.classList.contains('directory')) {
+			e.style.display = 'none';
+			return;
+		}
+		if (e.classList.contains('cm-directory') && !file.classList.contains('directory')) {
+			e.style.display = 'none';
+			return;
+		}
+		e.style.display = 'block';
+	});
+
+	console.log('context menu: ', file);
 	console.log(event);
 }
 
@@ -259,17 +326,19 @@ function iconByFilename(name)
 }
 
 function fileDownloadURL(file) {
+	if(!file) return null;
 	return '/api/desktop/'+file.desktop+'/file/'+file.id+'/download';
 }
 
 function fileContentURL(file) {
+	if(!file) return null;
 	return '/api/desktop/'+file.desktop+'/file/'+file.id+'/content';
 }
 
-function downloadFile(id) {
+function downloadFile(file) {
 	var e = document.createElement('a'); 
 	e.style.display = 'none';
-	e.setAttribute('href', fileDownloadURL(id)); 
+	e.setAttribute('href', fileDownloadURL(fileInfo(file))); 
 	document.body.appendChild(e); 
 	e.click(); 
 	document.body.removeChild(e); 
@@ -320,7 +389,17 @@ function createFile(file, desktop)
 	iconelem.width = 48;
 	iconelem.height = 48;
 	iconelem.classList.add('icon');
-	iconelem.classList.add(iconByFilename(file.name));
+	if(file.dir){
+		elem.classList.add('directory');
+		if (file.dir.type === 'subdesktop') {
+			iconelem.classList.add('directory-icon');
+			elem.classList.add('subdesktop-'+file.dir.desktop);
+		}else{
+			iconelem.classList.add('what-drive-icon');
+		}
+	}else{
+		iconelem.classList.add(iconByFilename(file.name));
+	}
 
 	var span = document.createElement('span');
 	span.innerText = shortFilename(file.name);
@@ -466,6 +545,9 @@ function rootWSHandler(err, res) {
 	case 'create_file':
 		document.getElementById('file-anchor').appendChild(createFile(res.create_file.file, global.desktopID));
 		break;
+	case 'create_directory':
+		document.getElementById('file-anchor').appendChild(createFile(res.create_directory, global.desktopID));
+		break;
 	case 'delete_file':
 		deleteFile(res.delete_file.id, res.desktop);
 		break;
@@ -500,6 +582,19 @@ function wsError(event)
 	global.wsGood = false;
 	console.error(event);
 	showDisconnectedLayer();
+}
+
+function wsCreateDirectory(name) {
+	global.ws.send(JSON.stringify({
+		type: 'create_directory',
+		desktop: global.desktopID,
+		create_directory: {
+			name: name,
+			type: 'subdesktop',
+			x: global.createPos.x,
+			y: global.createPos.y,
+		}
+	}));
 }
 
 window.addEventListener('load', function () {

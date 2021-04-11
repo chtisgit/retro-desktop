@@ -41,7 +41,7 @@ func New(dir, webroot string) (s *Server) {
 	}
 
 	s.m.Path("/").HandlerFunc(s.root)
-	s.m.Path("/d/{desktop:[A-Za-z0-9_-]+}").HandlerFunc(s.desktop)
+	s.m.Path("/d/{desktop:[A-Za-z0-9_\\-\\+]+}").HandlerFunc(s.desktop)
 	s.m.PathPrefix("/assets/").Handler(http.FileServer(http.Dir(s.webroot)))
 
 	s.m.Path("/api/ws").HandlerFunc(s.ws)
@@ -208,23 +208,39 @@ wsloop:
 	log.Println("ws closed")
 }
 
-func (s *Server) root(w http.ResponseWriter, r *http.Request) {
-	var b [6]byte
-
+func randomStr(n int) (string, error) {
+	b := make([]byte, n)
 	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+
+	return base64.URLEncoding.EncodeToString(b)[:n], nil
+}
+
+func (s *Server) root(w http.ResponseWriter, r *http.Request) {
+	id, err := randomStr(8)
+	if err != nil {
+		id = "error"
+	}
+
+	err = s.desktoper.CreateDesktop(id)
+	switch err {
+	case desktoper.ErrDesktopNotFound:
+		http.NotFound(w, r)
+		return
+	case nil:
+		http.Redirect(w, r, "/d/"+id, http.StatusTemporaryRedirect)
+	default:
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	id := base64.URLEncoding.EncodeToString(b[:])
-
-	http.Redirect(w, r, "/d/"+id, http.StatusTemporaryRedirect)
 }
 
 func (s *Server) desktop(w http.ResponseWriter, r *http.Request) {
 	v := mux.Vars(r)
 	id, ok := v["desktop"]
 	if !ok {
+		log.Printf("no desktop")
 		http.NotFound(w, r)
 		return
 	}
