@@ -14,18 +14,10 @@ var explorerApp = {
         });
 
         var content = win.getElementsByClassName('window-content')[0];
-        var addressbar = document.createElement('input');
-        addressbar.type = 'text';
-        addressbar.value = '/'+directory.name;
-        addressbar.style.width = '100%';
-        addressbar.style.height = '24px';
         
         var filesArea = document.createElement('div');
-        filesArea.style.width = '100%';
-        filesArea.style.height = 'calc(100% - 24px)';
-        filesArea.style.backgroundColor = 'white';
+        filesArea.classList.add('explorer-files-area');
 
-        content.appendChild(addressbar);
         content.appendChild(filesArea);
 
         api.openDesktop(directory.desktop, function(err, res) {

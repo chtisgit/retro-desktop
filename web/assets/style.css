@@ -150,9 +150,9 @@ textarea {
 }
 
 .window-content {
-    padding: 4px;
-    width: calc(100% - 8px);
-    height: calc(100% - 24px - 16px);
+    width: 100%;
+    margin-top: 4px;
+    height: calc(100% - 24px - 12px);
 }
 
 .window-titlebar {
@@ -195,4 +195,11 @@ textarea {
     position:absolute;
     left: calc(50% - 175px);
     top: calc(50% - 150px);
+}
+
+.explorer-files-area {
+    background-color: white;
+    width: calc(100% - 32px);
+    height: calc(100% - 32px);
+    padding: 16px;
 }
