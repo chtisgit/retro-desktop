@@ -18,6 +18,9 @@ var global = {
 	openDesktops: {},
 	lastClick: { x: 0, y: 0, ts: 0},
 	fileActions: {
+		'new-directory': function(event) {
+			wsCreateDirectory('Neuer Ordner');
+		},
 		'open': function(event) {
 			openFile(global.cmFile);
 		},
@@ -59,50 +62,7 @@ var global = {
 				return;
 			}
 
-			var file = global.cmFile;
-			var filenamespan = file.getElementsByClassName('filename')[0];
-			var origdisplay = filenamespan.style.display;
-			var origfilename = getFileName(file);
-			var inp = document.createElement('input');
-			var closed = false;
-			var close = function(apply) {
-				if (closed) return;
-				closed = true;
-
-				if (apply) {
-					global.ws.send(JSON.stringify({
-						type: 'rename',
-						desktop: getFileDesktop(file),
-						rename: {
-							newName: inp.value,
-							id: getFileID(file),
-						},
-					}));
-				}
-
-				file.removeChild(inp);
-				filenamespan.style.display = origdisplay;
-			};
-
-			inp.type = 'text';
-			inp.classList.add('filename-input');
-			inp.value = origfilename;
-			inp.maxLength = 96;
-			inp.addEventListener('blur', function() {
-				setTimeout(function() {
-					close(true)
-				}, 0);
-			})
-			inp.addEventListener('keydown', function(event) {
-				if (event.code === 'Enter' || event.code === 'Escape') {
-					close(event.code === 'Enter');
-				}
-			});
-			
-			filenamespan.style.display = 'none';
-			file.append(inp);
-
-			inp.focus();
+			editFilename(global.cmFile);
 		},
 		'delete': function(event) {
 			if(global.cmFile === null) {
@@ -120,6 +80,52 @@ var global = {
 	},
 	fileTypes: {},
 };
+
+function editFilename(file) {
+	var filenamespan = file.getElementsByClassName('filename')[0];
+	var origdisplay = filenamespan.style.display;
+	var origfilename = getFileName(file);
+	var inp = document.createElement('input');
+	var closed = false;
+	var close = function(apply) {
+		if (closed) return;
+		closed = true;
+
+		if (apply) {
+			global.ws.send(JSON.stringify({
+				type: 'rename',
+				desktop: getFileDesktop(file),
+				rename: {
+					newName: inp.value,
+					id: getFileID(file),
+				},
+			}));
+		}
+
+		file.removeChild(inp);
+		filenamespan.style.display = origdisplay;
+	};
+
+	inp.type = 'text';
+	inp.classList.add('filename-input');
+	inp.value = origfilename;
+	inp.maxLength = 96;
+	inp.addEventListener('blur', function() {
+		setTimeout(function() {
+			close(true)
+		}, 0);
+	})
+	inp.addEventListener('keydown', function(event) {
+		if (event.code === 'Enter' || event.code === 'Escape') {
+			close(event.code === 'Enter');
+		}
+	});
+	
+	filenamespan.style.display = 'none';
+	file.append(inp);
+
+	inp.focus();
+}
 
 function newAPI()
 {
@@ -318,15 +324,19 @@ function fileContextMenuHandler(event)
 
 	var file = chooseFile(event.target);
 	global.cmFile = file;
-	if (!file)
+	if (event.target !== document.getElementById('outer') && !file)
 		return;
 
 	cm.style.display = 'block';
 	cm.style.top = event.pageY+'px';
 	cm.style.left = event.pageX+'px';
-	//cm.style.position = 'fixed';
 
 	Array.from(document.getElementsByClassName('cm-entry')).forEach(function(e) {
+		if (!file) {
+			e.style.display = e.classList.contains('cm-desktop') ? 'block' : 'none';
+			return;
+		}
+
 		if (e.classList.contains('cm-file') && file.classList.contains('directory')) {
 			e.style.display = 'none';
 			return;
@@ -617,7 +627,11 @@ function rootWSHandler(err, res) {
 		document.getElementById('file-anchor').appendChild(createFile(res.create_file.file, global.desktopID));
 		break;
 	case 'create_directory':
-		document.getElementById('file-anchor').appendChild(createFile(res.create_directory, global.desktopID));
+		var file = createFile(res.create_directory, global.desktopID);
+		document.getElementById('file-anchor').appendChild(file);
+		if (res.create_directory.name === 'Neuer Ordner' && document.activeElement.tagName !== 'input') {
+			editFilename(file);
+		}
 		break;
 	case 'delete_file':
 		deleteFile(res.delete_file.id, res.desktop);
@@ -688,6 +702,9 @@ window.addEventListener('load', function () {
 		global.ws.send(JSON.stringify({ type: 'ping' }));
 	}, 20000);
 
+	if (document.getElementsByClassName('cm-desktop').length !== 0) {
+		document.getElementById('outer').addEventListener('contextmenu', fileContextMenuHandler);
+	}
 
 // device detection
 	if(/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|ipad|iris|kindle|Android|Silk|lge |maemo|midp|mmp|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows (ce|phone)|xda|xiino/i.test(navigator.userAgent)
