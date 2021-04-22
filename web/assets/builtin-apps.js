@@ -41,6 +41,9 @@ var explorerApp = {
             case 'move':
                 // ignore positions in explorer.
                 break;
+            case 'rename':
+                renameFile(res.rename.id, directory.desktop, res.rename.newName);
+                break;
             case 'error':
                 console.log('backend error: ', res.error.text);
                 break;

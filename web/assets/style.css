@@ -70,6 +70,22 @@ textarea {
     display: inline-block;
 }
 
+.filename-input {
+    position:absolute;
+    top: 56px;
+    left: -16px;
+    width: 80px;
+    letter-spacing: 1px;
+    font-family: "W95", sans-serif;
+    font-size: 10pt;
+    color: white;
+    text-shadow: 2px 2px 0px black;
+    height: 12pt;
+    background: transparent;
+    outline: none;
+    border: none;
+}
+
 .icon {
     width: 48px;
     height: 48px;

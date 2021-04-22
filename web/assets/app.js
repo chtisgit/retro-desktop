@@ -54,6 +54,56 @@ var global = {
 			document.execCommand('copy');
 			document.body.removeChild(el);
 		},
+		'rename': function(event) {
+			if (global.cmFile === null) {
+				return;
+			}
+
+			var file = global.cmFile;
+			var filenamespan = file.getElementsByClassName('filename')[0];
+			var origdisplay = filenamespan.style.display;
+			var origfilename = getFileName(file);
+			var inp = document.createElement('input');
+			var closed = false;
+			var close = function(apply) {
+				if (closed) return;
+				closed = true;
+
+				if (apply) {
+					global.ws.send(JSON.stringify({
+						type: 'rename',
+						desktop: getFileDesktop(file),
+						rename: {
+							newName: inp.value,
+							id: getFileID(file),
+						},
+					}));
+				}
+
+				file.removeChild(inp);
+				filenamespan.style.display = origdisplay;
+			};
+
+			inp.type = 'text';
+			inp.classList.add('filename-input');
+			inp.value = origfilename;
+			inp.maxLength = 96;
+			inp.addEventListener('blur', function() {
+				setTimeout(function() {
+					close(true)
+				}, 0);
+			})
+			inp.addEventListener('keydown', function(event) {
+				if (event.code === 'Enter' || event.code === 'Escape') {
+					close(event.code === 'Enter');
+				}
+			});
+			
+			filenamespan.style.display = 'none';
+			file.append(inp);
+
+			inp.focus();
+		},
 		'delete': function(event) {
 			if(global.cmFile === null) {
 				return;
@@ -181,14 +231,14 @@ function getFileDesktop(file)
 
 function getFileName(file)
 {
-	if(file.classList.contains('filename')){
+	if(file.classList.contains('fullfilename')){
 		return file.innerText;
 	}
 	if(file.classList.contains('icon')) {
 		file = file.parentElement;
 	}
 
-	var fn = file.getElementsByClassName('filename');
+	var fn = file.getElementsByClassName('fullfilename');
 	if(!fn || fn.length !== 1) return null;
 
 	return fn[0].innerText;
@@ -361,6 +411,31 @@ async function uploadFile(file, pos) {
 	console.log(res);
 }
 
+function setFilename(elem, filename)
+{
+	var span = elem.getElementsByClassName('filename');
+	if (span && span.length) {
+		span = span[0];
+	}else{
+		span = document.createElement('span');
+		span.classList.add('filename');
+		span.classList.add('unselectable');
+		elem.append(span);
+	}
+	span.innerText = shortFilename(filename);
+
+	var span2 = elem.getElementsByClassName('fullfilename');
+	if (span2 && span2.length) {
+		span2 = span2[0];
+	}else{
+		span2 = document.createElement('span');
+		span2.classList.add('fullfilename');
+		span2.style.display = 'none';
+		elem.append(span2);
+	}
+	span2.innerText = filename;
+}
+
 function createFile(file, desktop)
 {
 	var elem = document.createElement('div');
@@ -402,11 +477,7 @@ function createFile(file, desktop)
 		iconelem.classList.add(iconByFilename(file.name));
 	}
 
-	var span = document.createElement('span');
-	span.innerText = shortFilename(file.name);
-	span.classList.add('filename');
-	span.classList.add('unselectable');
-
+	setFilename(elem, file.name);
 
 	if(global.isMobile) {
 		elem.style.position = 'static';
@@ -424,7 +495,6 @@ function createFile(file, desktop)
 	elem.addEventListener('contextmenu', fileContextMenuHandler);
 
 	elem.appendChild(iconelem);
-	elem.appendChild(span);
 
 	return elem;
 }
@@ -555,6 +625,9 @@ function rootWSHandler(err, res) {
 	case 'move':
 		moveFile(res.move.id, res.desktop, res.move.toX, res.move.toY);
 		break;
+	case 'rename':
+		renameFile(res.rename.id, res.desktop, res.rename.newName);
+		break;
 	case 'error':
 		console.log('backend error: ', res.error.text);
 		break;
@@ -670,6 +743,20 @@ function moveFile(id, desktop, x, y)
 		if(file.classList.contains('desktopID-'+desktop) && !file.classList.contains('explorer-file')) {
 			file.style.left = x+'px';
 			file.style.top = y+'px';
+		}
+	});
+}
+
+function renameFile(id, desktop, newName)
+{
+	var f = document.getElementsByClassName('fileID-'+id)
+	if(!f || f.length === 0) {
+		return;
+	}
+
+	Array.from(f).forEach(function(file) {
+		if(file.classList.contains('desktopID-'+desktop)) {
+			setFilename(file, newName)
 		}
 	});
 }
