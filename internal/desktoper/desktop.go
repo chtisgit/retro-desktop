@@ -11,12 +11,15 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/chtisgit/retro-desktop/api"
 )
+
+var filenameRegex = regexp.MustCompile("^[^\\/:;*?!%&{}]{1,92}$")
 
 type Desktop struct {
 	name        string
@@ -207,6 +210,38 @@ func (d *Desktop) Request(req *api.WSRequest) (res *api.WSResponse) {
 			Desktop: d.name,
 			Move:    req.Move,
 		})
+	case "rename":
+		if !filenameRegex.MatchString(req.Rename.NewName) {
+			res = &api.WSResponse{
+				Type:    "error",
+				Desktop: d.name,
+				Error: api.WSErrorResponse{
+					ID:   "new-filename-invalid",
+					Text: "The filename '" + req.Rename.NewName + "' either contains invalid characters, is too short or too long",
+				},
+			}
+			return
+		}
+
+		if err := d.File(req.Rename.ID, func(file *api.File, _ int) {
+			file.Name = req.Rename.NewName
+		}); err != nil {
+			res = &api.WSResponse{
+				Type:    "error",
+				Desktop: d.name,
+				Error: api.WSErrorResponse{
+					ID:   "file-not-found",
+					Text: "Cannot move file with id '" + req.Rename.ID + "' because it does not exist",
+				},
+			}
+			return
+		}
+
+		d.SendMessage(&api.WSResponse{
+			Type:    req.Type,
+			Desktop: d.name,
+			Rename:  req.Rename,
+		})
 	case "delete_file":
 		if err := d.File(req.DeleteFile.ID, func(_ *api.File, i int) {
 			copy(d.state.Files[i:], d.state.Files[i+1:])
@@ -357,6 +392,11 @@ func (d *Desktop) HTTPUploadFile(w http.ResponseWriter, r *http.Request) {
 	file, hdr, err := r.FormFile("file")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if !filenameRegex.MatchString(hdr.Filename) {
+		http.Error(w, "Filename invalid", http.StatusBadRequest)
 		return
 	}
 

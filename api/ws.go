@@ -46,6 +46,7 @@ type WSRequest struct {
 	Desktop string `json:"desktop"`
 
 	Move            WSMove            `json:"move"`
+	Rename          WSRename          `json:"rename"`
 	CreateDirectory WSCreateDirectory `json:"create_directory"`
 	DeleteFile      WSDeleteFile      `json:"delete_file"`
 }
@@ -59,7 +60,13 @@ type WSResponse struct {
 	CreateDirectory WSCreateDirectoryResponse `json:"create_directory"`
 	DeleteFile      WSDeleteFile              `json:"delete_file"`
 	Move            WSMove                    `json:"move"`
+	Rename          WSRename                  `json:"rename"`
 	Error           WSErrorResponse           `json:"error"`
+}
+
+type WSRename struct {
+	ID      string `json:"id"`
+	NewName string `json:"newName"`
 }
 
 type WSOpenResponse struct {
