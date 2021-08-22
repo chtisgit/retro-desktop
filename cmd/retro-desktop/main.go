@@ -38,13 +38,14 @@ func main() {
 	flag.StringVar(&c.Listen, "listen", ":8080", "listen address, host and port combination")
 	flag.StringVar(&c.SaveDir, "d", "", "saves directory")
 	flag.StringVar(&c.WebRoot, "webroot", "", "web root")
+	flag.Int64Var(&c.UploadBandwidthLimit, "upload-bw", 0, "Upload bandwidth limit in [kB/s]")
 	flag.Parse()
 
 	if !checkDirs(c.SaveDir, c.WebRoot) {
 		log.Fatalln("fatal error: set -d and -webroot to existing directories")
 	}
 
-	s := server.New(c.SaveDir, c.WebRoot)
+	s := server.New(&c)
 
 	srv := http.Server{
 		Addr:    c.Listen,
@@ -87,6 +88,7 @@ func main() {
 		}
 	}()
 
+	log.Println("ready")
 	err := srv.ListenAndServe()
 	if err != nil {
 		if err == http.ErrServerClosed {

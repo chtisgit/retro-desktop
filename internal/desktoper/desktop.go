@@ -6,14 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/chtisgit/retro-desktop/api"
@@ -26,6 +28,7 @@ type Desktop struct {
 	path        string
 	activeUsers int32
 	opened      time.Time
+	close       chan struct{}
 
 	filesLock sync.Mutex
 	state     api.Desktop
@@ -34,6 +37,8 @@ type Desktop struct {
 	subs    []chan *api.WSResponse
 
 	desktoper *Desktoper
+
+	uploadman *UploadManager
 }
 
 func (d *Desktop) Files() (files []api.File) {
@@ -388,30 +393,126 @@ func (d *Desktop) assignFileIDs() error {
 	return nil
 }
 
-func (d *Desktop) HTTPUploadFile(w http.ResponseWriter, r *http.Request) {
-	file, hdr, err := r.FormFile("file")
+type uploadInfo struct {
+	f    *os.File
+	name string
+	size int64
+	x, y int
+}
+
+type counter struct {
+	x *int64
+}
+
+func (c *counter) Write(p []byte) (n int, err error) {
+	atomic.AddInt64(c.x, int64(len(p)))
+	return len(p), nil
+}
+
+func (d *Desktop) sendUploadStatus(uploads []api.Upload) {
+	d.SendMessage(&api.WSResponse{
+		Type:    "upload_status",
+		Desktop: d.name,
+		UploadStatus: api.WSUploads{
+			Uploads: uploads,
+		},
+	})
+}
+
+func (d *Desktop) handleUploadPart(part *multipart.Part, res *uploadInfo) error {
+	defer part.Close()
+
+	switch part.FormName() {
+	case "x":
+		fmt.Fscanf(part, "%d", &res.x)
+		return nil
+	case "y":
+		fmt.Fscanf(part, "%d", &res.y)
+		return nil
+	case "size":
+		fmt.Fscanf(part, "%d", &res.size)
+		return nil
+	case "file":
+		break
+	default:
+		// ignore unrecognized form fields
+		return nil
+	}
+
+	if res.size <= 0 {
+		return errors.New("invalid size")
+	}
+
+	res.name = part.FileName()
+	u, err := d.uploadman.Add(res.name, res.size)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		return err
+	}
+
+	ctr := counter{x: &u.Loaded}
+
+	f, err := ioutil.TempFile("", "retro-upload")
+	if err != nil {
+		d.uploadman.Mark(u.UploadID, false, true)
+		return err
+	}
+
+	dst := io.MultiWriter(&ctr, f)
+	if _, err = slowCopy(dst, part, d.desktoper.opts.UploadBandwidthLimit); err != nil {
+		d.uploadman.Mark(u.UploadID, false, true)
+		f.Close()
+		os.Remove(f.Name())
+		return err
+	}
+
+	res.f = f
+	d.uploadman.Mark(u.UploadID, true, false)
+	return nil
+}
+
+func (d *Desktop) handleUpload(r *http.Request) (res uploadInfo, err error) {
+	mr, err := r.MultipartReader()
+	if err != nil {
 		return
 	}
 
-	if !filenameRegex.MatchString(hdr.Filename) {
+	for {
+		part, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
+
+		if err := d.handleUploadPart(part, &res); err != nil {
+			return res, err
+		}
+	}
+
+	return
+}
+
+func (d *Desktop) HTTPUploadFile(w http.ResponseWriter, r *http.Request) {
+	upl, err := d.handleUpload(r)
+	if err != nil {
+		log.Printf("error parsing: %s\n", err.Error())
+		http.Error(w, "Cannot decode request", http.StatusBadRequest)
+		return
+	}
+
+	if !filenameRegex.MatchString(upl.name) {
 		http.Error(w, "Filename invalid", http.StatusBadRequest)
 		return
 	}
 
-	var x, y float64
 	serverCoords := true
-	x, err = strconv.ParseFloat(r.FormValue("x"), 64)
-	if err == nil {
-		y, err = strconv.ParseFloat(r.FormValue("y"), 64)
-		if err == nil {
-			serverCoords = false
-		}
+	x := float64(d.state.CreateX)
+	y := float64(d.state.CreateY)
+	if upl.x != 0 {
+		x = float64(upl.x)
+		serverCoords = false
 	}
-	if serverCoords {
-		x = float64(d.state.CreateX)
-		y = float64(d.state.CreateY)
+	if upl.y != 0 {
+		y = float64(upl.y)
+		serverCoords = false
 	}
 
 	d.filesLock.Lock()
@@ -425,7 +526,7 @@ func (d *Desktop) HTTPUploadFile(w http.ResponseWriter, r *http.Request) {
 	id := fmt.Sprintf("%06X", d.state.FileIDCtr)
 	d.state.FileIDCtr++
 
-	if err := d.createFile(id, file); err != nil {
+	if err := d.createFile(id, upl.f); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -434,7 +535,7 @@ func (d *Desktop) HTTPUploadFile(w http.ResponseWriter, r *http.Request) {
 
 	f := api.File{
 		ID:       id,
-		Name:     hdr.Filename,
+		Name:     upl.name,
 		X:        x,
 		Y:        y,
 		Created:  &now,
@@ -456,6 +557,9 @@ func (d *Desktop) HTTPUploadFile(w http.ResponseWriter, r *http.Request) {
 		if d.state.CreateX >= 1920 {
 			d.state.CreateX = 16
 			d.state.CreateY += 96
+		}
+		if d.state.CreateY >= 1080 {
+			d.state.CreateY = 16
 		}
 	}
 }

@@ -61,6 +61,7 @@ type WSResponse struct {
 	DeleteFile      WSDeleteFile              `json:"delete_file"`
 	Move            WSMove                    `json:"move"`
 	Rename          WSRename                  `json:"rename"`
+	UploadStatus    WSUploads                 `json:"upload_status"`
 	Error           WSErrorResponse           `json:"error"`
 }
 
@@ -100,4 +101,20 @@ type WSMove struct {
 
 type WSDeleteFile struct {
 	ID string `json:"id"`
+}
+
+type Upload struct {
+	UploadID string `json:"uploadID"`
+	Filename string `json:"filename"`
+	Size     int64  `json:"size"`
+	Loaded   int64  `json:"loaded"`
+	Done     bool   `json:"done"`
+	Failed   bool   `json:"failed"`
+
+	StartTime int64 `json:"startTime"`
+	EndTime   int64 `json:"endTime"`
+}
+
+type WSUploads struct {
+	Uploads []Upload `json:"uploads"`
 }

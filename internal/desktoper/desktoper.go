@@ -19,21 +19,28 @@ var ErrDesktopExists = errors.New("desktop exists")
 var ErrDesktopNotFound = errors.New("desktop not found")
 var ErrDesktopCorrupt = errors.New("desktop corrupt")
 
+type Options struct {
+	// UploadBandwidthLimit in kB/s
+	UploadBandwidthLimit int64
+}
+
 // Desktoper manages active desktops
 type Desktoper struct {
 	path string
+	opts Options
 
 	mLock sync.Mutex
 	m     map[string]*Desktop
 }
 
-func New(path string) *Desktoper {
+func New(path string, opts Options) *Desktoper {
 	if err := os.MkdirAll(path, 0700); err != nil && !os.IsExist(err) {
 		panic(err)
 	}
 
 	return &Desktoper{
 		path: path,
+		opts: opts,
 		m:    make(map[string]*Desktop),
 	}
 }
@@ -48,7 +55,9 @@ func (d *Desktoper) newDesktop(name string) *Desktop {
 			CreateX: 16,
 			CreateY: 16,
 		},
+		close: make(chan struct{}),
 	}
+	dt.uploadman = newUploadManager(dt)
 
 	if err := os.Mkdir(dt.path, 0700); err != nil && !os.IsExist(err) {
 		panic(err)
@@ -152,6 +161,9 @@ func (d *Desktoper) CloseDesktop(name string) error {
 		if err != nil {
 			log.Printf("Error during writeDesktop: %s", err)
 		}
+
+		// stop worker by closing channel close
+		close(dt.close)
 
 		delete(d.m, name)
 

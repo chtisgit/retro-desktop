@@ -32,12 +32,14 @@ type Server struct {
 // Server implements http.Handler
 var _ http.Handler = (*Server)(nil)
 
-func New(dir, webroot string) (s *Server) {
+func New(cfg *api.Config) (s *Server) {
 	s = &Server{
-		m:         mux.NewRouter(),
-		webroot:   webroot,
-		desktoper: desktoper.New(dir),
-		wsClose:   make(chan struct{}),
+		m:       mux.NewRouter(),
+		webroot: cfg.WebRoot,
+		desktoper: desktoper.New(cfg.SaveDir, desktoper.Options{
+			UploadBandwidthLimit: cfg.UploadBandwidthLimit,
+		}),
+		wsClose: make(chan struct{}),
 	}
 
 	s.m.Path("/").HandlerFunc(s.root)

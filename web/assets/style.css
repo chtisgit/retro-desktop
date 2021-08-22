@@ -156,6 +156,24 @@ textarea {
     user-select: none;
  }
 
+#uploadHUDContainer {
+    top: 0px;
+    left: 0px;
+    right: 0px;
+    bottom: 0px;
+    position: fixed;
+    z-index: 1000;
+    pointer-events: none;
+    padding: 16px;
+}
+
+.simpleProgressHUD {
+    pointer-events: none;
+    color: white;
+    font-family: "W95", sans-serif;
+    font-size: 11pt;
+    font-weight:bold;
+}
 
 .window {
     position: absolute;

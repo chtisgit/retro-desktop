@@ -79,6 +79,7 @@ var global = {
 		},
 	},
 	fileTypes: {},
+	handleUploadEvent: null,
 };
 
 function editFilename(file) {
@@ -407,9 +408,10 @@ function downloadFile(file) {
 
 async function uploadFile(file, pos) {
 	var formData = new FormData();
-	formData.append('file', file);
+	formData.append('size', +file.size);
 	formData.append('x', pos.x-24);
 	formData.append('y', pos.y-24);
+	formData.append('file', file);
 
 	var res = await fetch('/api/desktop/'+global.desktopID+'/file', {
 		method: 'POST',
@@ -417,8 +419,6 @@ async function uploadFile(file, pos) {
 		cache: 'no-cache',
 		referrerPolicy: 'no-referrer',
 	});
-
-	console.log(res);
 }
 
 function setFilename(elem, filename)
@@ -647,6 +647,12 @@ function rootWSHandler(err, res) {
 		break;
 	case 'ping':
 		break;
+	case 'upload_status':
+		if (typeof global.handleUploadEvent === 'function') {
+			global.handleUploadEvent(res.upload_status);
+		}
+		break;
+
 	default:
 		console.log('what is : ', res.type);
 	}
@@ -777,6 +783,58 @@ function renameFile(id, desktop, newName)
 		}
 	});
 }
+
+var simpleProgressHUD = {
+	elements: [],
+	fl: null,
+	handle: function(event) {
+		var self = simpleProgressHUD;
+
+		if (!self.fl) {
+			self.fl = document.getElementById('uploadHUDContainer');
+			if (!self.fl)
+				return;
+		}
+
+		event.uploads.forEach(function(u) {
+			var p = document.getElementById('simpleProgressHUD-'+window.btoa(u.uploadID))
+			if (!p) {
+				if (u.done || u.failed)
+					return;
+				var p = document.createElement('p');
+				p.classList.add('simpleProgressHUD');
+				p.id = 'simpleProgressHUD-'+window.btoa(u.uploadID);
+
+				self.fl.append(p);
+			}
+
+			if (u.done || u.failed) {
+				p.innerText = u.filename+' ... upload '+(u.done ? 'successful' : 'failed');
+				setTimeout(function() {
+					p.parentElement.removeChild(p);
+				}, 1500);
+				return;
+			}
+
+			p.innerText = u.filename+' ... '+(100.0*u.loaded / u.size).toFixed(1)+'% uploaded ('+u.loaded+'/'+u.size+' bytes)';
+		});
+
+		Array.from(document.getElementsByClassName('simpleProgressHUD')).forEach(function(p) {
+			var found = false;
+			for(let i = 0; i != event.uploads; i++) {
+				if ('simpleProgressHUD-'+window.btoa(event.uploads[i].uploadID) === p.id) {
+					found = true;
+					break;
+				}
+			}
+
+			if(!found)
+				self.fl.removeChild(p);
+		});
+	},
+};
+
+global.handleUploadEvent = simpleProgressHUD.handle;
 
 document.addEventListener("dragend", function(event) {
 	var dragged = global.drag.elem;
