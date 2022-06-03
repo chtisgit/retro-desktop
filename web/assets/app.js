@@ -69,13 +69,30 @@ var global = {
 				return;
 			}
 
-			global.ws.send(JSON.stringify({
-				type: 'delete_file',
-				desktop: getFileDesktop(global.cmFile),
-				delete_file: {
-					id: getFileID(global.cmFile),
-				}
-			}));
+			var file = global.cmFile;
+			var deleteAction = function() {
+				global.ws.send(JSON.stringify({
+					type: 'delete_file',
+					desktop: getFileDesktop(file),
+					delete_file: {
+						id: getFileID(file),
+					}
+				}));
+			};
+
+			if (!confirmPrompt) {
+				deleteAction();
+				return;
+			}
+
+			var filename = getFileName(file);
+
+			confirmPrompt('Delete File',
+				`Do you really want to delete the file "${filename}"`,
+				[
+					{ text: 'Yes', callback: deleteAction },
+					{ text: 'No' }
+				]);
 		},
 	},
 	fileTypes: {},

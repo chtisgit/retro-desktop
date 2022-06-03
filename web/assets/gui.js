@@ -72,7 +72,6 @@ function guiLargestZ()
 function guiWindowCloseHandler(event)
 {
 	var win = event.target.parentElement.parentElement;
-	console.log(win);
 	win.parentElement.removeChild(win);
 }
 
@@ -189,8 +188,8 @@ function guiCreateWindow(opts)
 	maximizeButton.addEventListener('mouseup', guiMaximizeButtonMouseUpHandler);
 	closeButton.addEventListener('mousedown', guiCloseButtonMouseDownHandler);
 	closeButton.addEventListener('mouseup', guiCloseButtonMouseUpHandler);
-	if (opts.onclose) {
-		closeButton.addEventListener('mouseup', opts.onclose);
+	if (opts.onClose) {
+		closeButton.addEventListener('mouseup', opts.onClose);
 	}
 
 	win.style.top = (opts.y ? opts.y : 200) + 'px';
@@ -211,7 +210,8 @@ function guiCreateWindow(opts)
 
 	document.getElementById('window-anchor').appendChild(win);
 
-	makeResizable(win);
+	if (!opts.noResize)
+		makeResizable(win);
 
 	return win;
 }
@@ -273,6 +273,53 @@ function makeResizable(p)
 		window.addEventListener('mousemove', doDrag, false);
 		window.addEventListener('mouseup', stopDrag, false);		
 	}, false);
+}
+
+function confirmPrompt(title, message, options, closeCallback) {
+        var win = guiCreateWindow({
+		title: title,
+		x: 400,
+		y: 300,
+		width: 400,
+		height: 150,
+		onClose: closeCallback,
+		noResize: true,
+        });
+
+	
+	var content = win.getElementsByClassName('window-content')[0];
+
+	var div = document.createElement('div');
+	div.style.width = '100%';
+	div.style.padding = '8px';
+	div.innerText = message;
+
+	var btns = document.createElement('div');
+	btns.style.width = '100%';
+	btns.style.display = 'flex';
+	btns.style.justifyContent = 'space-around';
+	btns.style.marginTop = '8px';
+
+	for (var i = 0; i !== options.length; i++) {
+		var opt = options[i];
+
+		var btn = document.createElement('button');
+		btn.type = 'button';
+		btn.style.padding = '4px';
+		btn.onclick = (function(opt) {
+			return function() {
+				win.parentElement.removeChild(win);
+				if (opt.callback)
+					setTimeout(opt.callback, 0);
+			};
+		})(opt);
+		btn.innerText = opt.text;
+
+		btns.appendChild(btn);
+	}
+
+	content.appendChild(div);
+	content.appendChild(btns);
 }
 
 guiInit();

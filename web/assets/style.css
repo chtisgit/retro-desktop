@@ -4,8 +4,16 @@
     src: url("fonts/w-95-sans-serif.woff2");
 }
 
-html, body {
+html,
+body,
+button,
+h1,h2,h3,h4,h5,h6, 
+.filename-input,
+.simpleProgressHUD {
     font-family: "W95", sans-serif;
+}
+
+html, body {
     font-size: 10pt;
     margin: 0px;
     padding: 0px;
@@ -76,7 +84,6 @@ textarea {
     left: -16px;
     width: 80px;
     letter-spacing: 1px;
-    font-family: "W95", sans-serif;
     font-size: 10pt;
     color: white;
     text-shadow: 2px 2px 0px black;
@@ -170,7 +177,6 @@ textarea {
 .simpleProgressHUD {
     pointer-events: none;
     color: white;
-    font-family: "W95", sans-serif;
     font-size: 11pt;
     font-weight:bold;
 }
