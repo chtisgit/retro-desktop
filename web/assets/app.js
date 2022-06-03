@@ -779,6 +779,7 @@ function fileDragEndHandler(event) {
 	}));
 }
 
+
 document.addEventListener("dragstart", fileDragStartHandler);
 document.addEventListener("drop", fileDragEndHandler);
 

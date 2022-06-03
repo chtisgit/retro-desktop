@@ -287,7 +287,7 @@ function confirmPrompt(title, message, options, closeCallback) {
         });
 
 	
-	var content = win.getElementsByClassName('window-content')[0];
+        var content = win.getElementsByClassName('window-content')[0];
 
 	var div = document.createElement('div');
 	div.style.width = '100%';
@@ -318,8 +318,14 @@ function confirmPrompt(title, message, options, closeCallback) {
 		btns.appendChild(btn);
 	}
 
-	content.appendChild(div);
+        content.appendChild(div);
 	content.appendChild(btns);
+}
+
+function messageBox(title, message, cb) {
+	confirmPrompt(title, message, [
+		{ text: 'Ok', callback: cb }
+	], cb);
 }
 
 guiInit();
