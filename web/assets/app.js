@@ -721,8 +721,7 @@ window.addEventListener('load', function () {
 	console.log('global.isMobile = ', global.isMobile);
 });
 
-
-document.addEventListener("dragstart", function(event) {
+function fileDragStartHandler(event) {
 	if (global.isMobile) {
 		return;
 	}
@@ -745,11 +744,39 @@ document.addEventListener("dragstart", function(event) {
 
 	var r = dragged.getBoundingClientRect();
 
-	global.drag.startX = r.left - event.clientX;
-	global.drag.startY = r.top - event.clientY;
-	global.drag.x = global.drag.startX;
-	global.drag.y = global.drag.startY;
-}, false);
+	global.drag.offsetX = r.left - event.clientX;
+	global.drag.offsetY = r.top  - event.clientY;
+}
+
+function fileDragEndHandler(event) {
+	var dragged = global.drag.elem;
+	if (dragged === null)
+		return;
+	global.drag.elem = null;
+
+	// reset the transparency
+	dragged.style.opacity = '';
+
+	var x = event.clientX + global.drag.offsetX;
+	var y = event.clientY + global.drag.offsetY;
+
+	console.log(`startX: ${global.drag.startX}  startY: ${global.drag.startY}`);
+	console.log(`drag.x: ${global.drag.x}  drag.y: ${global.drag.y}`);
+	console.log(`x: ${x} y: ${y}`);
+
+	global.ws.send(JSON.stringify({
+		type: 'move',
+		desktop: global.desktopID,
+		move: {
+			id: getFileID(dragged),
+			toX: x,
+			toY: y,
+		},
+	}));
+}
+
+document.addEventListener("dragstart", fileDragStartHandler);
+document.addEventListener("drop", fileDragEndHandler);
 
 function moveFile(id, desktop, x, y)
 {
@@ -836,47 +863,6 @@ var simpleProgressHUD = {
 
 global.handleUploadEvent = simpleProgressHUD.handle;
 
-document.addEventListener("dragend", function(event) {
-	var dragged = global.drag.elem;
-	if (dragged === null)
-		return;
-	global.drag.elem = null;
-
-	// reset the transparency
-	dragged.style.opacity = '';
-
-	var x = global.drag.startX+global.drag.x;
-	var y = global.drag.startY+global.drag.y;
-
-	global.ws.send(JSON.stringify({
-		type: 'move',
-		desktop: global.desktopID,
-		move: {
-			id: getFileID(dragged),
-			toX: x,
-			toY: y,
-		},
-	}));
-
-}, false);
-
-
-/* events fired on the drop targets */
-document.addEventListener("dragover", function( event ) {
-	// Standard-Aktion verhindern um das drop-Event zu erlauben
-	event.preventDefault();
-	
-	var dragged = global.drag.elem;
-	
-	if (dragged === null)
-		return;
-
-	dragged.style.left = global.drag.startX+event.clientX+'px';
-	dragged.style.top = global.drag.startY+event.clientY+'px';
-	global.drag.x = event.clientX;
-	global.drag.y = event.clientY;
-	
-}, false);
 
 
 window.addEventListener('click', function(event) {
