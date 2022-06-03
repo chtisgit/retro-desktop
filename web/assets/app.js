@@ -504,24 +504,11 @@ function createFile(file, desktop)
 		iconelem.classList.add(iconByFilename(file.name));
 	}
 
+	elem.appendChild(iconelem);
 	setFilename(elem, file.name);
-
-	if(global.isMobile) {
-		elem.style.position = 'static';
-		elem.style.display = 'inline-block';
-		elem.style.width = '50%';
-		elem.style.height = '128px';
-		iconelem.style.width = '96px';
-		iconelem.style.height = '96px';
-		iconelem.style.backgroundSize = '96px 96px';
-		iconelem.style.backgroundRepeat = 'no-repeat';
-		span.style.position = 'static';
-	}
 
 	elem.addEventListener('click', fileClickHandler);
 	elem.addEventListener('contextmenu', fileContextMenuHandler);
-
-	elem.appendChild(iconelem);
 
 	return elem;
 }

@@ -243,3 +243,39 @@ textarea {
     height: calc(100% - 32px);
     padding: 16px;
 }
+
+@media only screen and (max-width: 600px) {
+    body {
+        overflow-y: auto;
+    }
+
+    #file-anchor {
+        display: flex;
+        justify-content: space-around;
+        flex-wrap: wrap;
+    }
+
+    .file {
+        margin-top: 16px;
+        position: static;
+        flex: 1 1 50%;
+        height: auto;
+    }
+
+    .icon {
+        position: static;
+        margin-left: auto;
+        margin-right: auto;
+        width: 96px;
+        height: 96px;
+        background-size: 96px 96px;
+        background-repeat: no-repeat;
+    }
+
+    .filename {
+        position: static;
+        padding-left: 8px;
+        padding-right: 8px;
+        width: calc(100% - 16px);
+    }
+}
