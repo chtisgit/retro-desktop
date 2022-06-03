@@ -136,6 +136,7 @@ var textEditorApp = {
         var content = win.getElementsByClassName('window-content')[0];
         var textarea = document.createElement('textarea');
 
+	textarea.style.boxSizing = 'border-box';
         textarea.style.width = '100%';
         textarea.style.height = '100%';
         textarea.setAttribute('readonly', '');
