@@ -88,7 +88,7 @@ var global = {
 			var filename = getFileName(file);
 
 			confirmPrompt('Delete File',
-				`Do you really want to delete the file "${filename}"`,
+				`Do you really want to delete the file "${filename}"?`,
 				[
 					{ text: 'Yes', callback: deleteAction },
 					{ text: 'No' }
