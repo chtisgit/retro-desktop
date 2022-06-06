@@ -37,6 +37,14 @@
             <div id="window-anchor">
             </div>
         </div>
+        <div id="taskbar">
+            <button type="button" id="startButton" class="unselectable" onclick="toggleStartMenu()">Start</button>
+        </div>
+        <div id="startmenu" style="display:none">
+            <ul id="startmenu-content">
+                
+            </ul>
+        </div>
         <div id="disconnected-layer">
             <div class="middiag unselectable">
                 You have been disconnected. Please refresh the page.
@@ -44,8 +52,9 @@
         </div>
         <div class="unselectable" id="uploadHUDContainer"></div>
 
-        <script src="/assets/app.js"></script>
-        <script src="/assets/gui.js"></script>
-        <script src="/assets/builtin-apps.js"></script>
+        <script src="/assets/app.js" defer></script>
+        <script src="/assets/gui.js" defer></script>
+        <script src="/assets/builtin-apps.js" defer></script>
+        <script src="/assets/apps.js" defer></script>
     </body>
 </html>

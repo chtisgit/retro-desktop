@@ -1,4 +1,6 @@
 
+// This is legacy stuff now...
+
 function explorerize(file)
 {
     file.classList.add('explorer-file');
@@ -156,90 +158,6 @@ var textEditorApp = {
     },
 }
 
-function loadAppList() {
-    var list = localStorage.getItem('appList');
-    if (!list) list = []; else list = JSON.parse(list);
-    return list;
-}
-
-function saveAppList(list) {
-    localStorage.setItem('appList', JSON.stringify(list));
-}
-
-function installApp(app) {
-    var list = loadAppList();
-    app.id = list.reduce(function (acc, item) {
-        return Math.max(acc, item.id);
-    }, 0) + 1;
-
-    list.push({
-        id: app.id,
-        name: app.name,
-    });
-    saveAppList(list);
-
-    localStorage.setItem(`app${app.id}`, app.code);
-
-    messageBox('App Installed', `App "${app.name}" has been successfully installed!`);
-}
-
-var installerApp = {
-    name: 'Install Wizard',
-    start: function(api, file) {
-        var install = function() {
-            fetch(api.fileContentURL(file), {
-                method: 'GET',
-            }).then(function(res) {
-                var reader = res.body.getReader()
-
-                reader.read().then(editorRead(reader, [], function(data){
-                    var app = {
-                        name: file.name,
-                        code: new TextDecoder().decode(data),
-                    };
-                    var titleRe = new RegExp('<title>([^<]+)</title>');
-                    var title = titleRe.exec(app.code);
-                    if (title) {
-                        app.name = title[1];
-                    }
-                    installApp(app);
-                }));
-            });
-        };
-
-        confirmPrompt('Install Wizard',
-            `Do you really want to install "${file.name}"?`,
-            [
-                { text: 'Yes', callback: install },
-                { text: 'No' },
-            ]);
-    },
-}
-
-function startInstalledApp(id) {
-    var applist = loadAppList();
-    var app = applist.find((app) => app.id === id);
-    if (!app) {
-        messageBox('App Not Found!', 'No App with this ID was found locally!');
-        return;
-    }
-
-    var win = guiCreateWindow({
-        title: app.name,
-    });
-
-    var content = win.getElementsByClassName('window-content')[0];
-
-    var iframe = document.createElement('iframe');
-    iframe.style.boxSizing = 'border-box';
-    iframe.style.width = '100%';
-    iframe.style.height = '100%';
-    iframe.setAttribute('sandbox', 'allow-scripts');
-    iframe.setAttribute('srcdoc', localStorage.getItem(`app${id}`));
-
-    content.appendChild(iframe);
-}
-
 function registerHandler(exts, handler)
 {
     exts.forEach(function(ext) {
@@ -253,11 +171,9 @@ function builtinAppsInit()
         return;
     }
 
-    registerHandler(['app'], installerApp);
     registerHandler(['jpg', 'jpeg', 'png', 'gif'], imagePreviewApp);
     registerHandler(['webm', 'mp4', 'm4v', 'ogg'], videoPreviewApp)
     registerHandler(['txt', 'log'], textEditorApp);
 }
-
 
 builtinAppsInit();

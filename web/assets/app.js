@@ -6,6 +6,9 @@ var global = {
 	createPos: { x: 16, y : 16 },
 	cmFile: null,
 	desktopID: null,
+	startMenu: {
+		open: false,
+	},
 	files: [],
 	wsMessageHandlers: [],
 	drag: {
@@ -88,7 +91,7 @@ var global = {
 			var filename = getFileName(file);
 
 			confirmPrompt('Delete File',
-				`Do you really want to delete the file "${filename}"?`,
+				`Do you really want to delete the file "${filename}"`,
 				[
 					{ text: 'Yes', callback: deleteAction },
 					{ text: 'No' }
@@ -338,36 +341,13 @@ function shortFilename(name) {
 function fileContextMenuHandler(event)
 {
 	event.preventDefault();
-	var cm = document.getElementById('contextmenu');
 
 	var file = chooseFile(event.target);
 	global.cmFile = file;
 	if (event.target !== document.getElementById('outer') && !file)
 		return;
 
-	cm.style.display = 'block';
-	cm.style.top = event.pageY+'px';
-	cm.style.left = event.pageX+'px';
-
-	Array.from(document.getElementsByClassName('cm-entry')).forEach(function(e) {
-		if (!file) {
-			e.style.display = e.classList.contains('cm-desktop') ? 'block' : 'none';
-			return;
-		}
-
-		if (e.classList.contains('cm-file') && file.classList.contains('directory')) {
-			e.style.display = 'none';
-			return;
-		}
-		if (e.classList.contains('cm-directory') && !file.classList.contains('directory')) {
-			e.style.display = 'none';
-			return;
-		}
-		e.style.display = 'block';
-	});
-
-	console.log('context menu: ', file);
-	console.log(event);
+	showContextMenu(event.pageX, event.pageY, file);
 }
 
 function cmActionHandler(event)
@@ -461,6 +441,8 @@ function setFilename(elem, filename)
 		elem.append(span2);
 	}
 	span2.innerText = filename;
+
+	return span;
 }
 
 function createFile(file, desktop)
@@ -505,7 +487,7 @@ function createFile(file, desktop)
 	}
 
 	elem.appendChild(iconelem);
-	setFilename(elem, file.name);
+	var span = setFilename(elem, file.name);
 
 	elem.addEventListener('click', fileClickHandler);
 	elem.addEventListener('contextmenu', fileContextMenuHandler);
@@ -781,7 +763,13 @@ function fileDragEndHandler(event) {
 
 
 document.addEventListener("dragstart", fileDragStartHandler);
-document.addEventListener("drop", fileDragEndHandler);
+
+if (navigator.userAgent.search("Firefox") != -1) {
+	// fuckin firefox has to be special
+	document.addEventListener("drop", fileDragEndHandler);
+} else {
+	document.addEventListener("dragend", fileDragEndHandler);
+}
 
 function moveFile(id, desktop, x, y)
 {
@@ -868,11 +856,43 @@ var simpleProgressHUD = {
 
 global.handleUploadEvent = simpleProgressHUD.handle;
 
+function showContextMenu(x,y,file) {
+	var cm = document.getElementById('contextmenu');
+	cm.style.display = 'block';
+	cm.style.top = y+'px';
+	cm.style.left = x+'px';
 
+	Array.from(document.getElementsByClassName('cm-entry')).forEach(function(e) {
+		if (!file) {
+			e.style.display = e.classList.contains('cm-desktop') ? 'block' : 'none';
+			return;
+		}
+
+		if (e.classList.contains('cm-file') && file.classList.contains('directory')) {
+			e.style.display = 'none';
+			return;
+		}
+		if (e.classList.contains('cm-directory') && !file.classList.contains('directory')) {
+			e.style.display = 'none';
+			return;
+		}
+		e.style.display = 'block';
+	});
+
+}
+
+function hideContextMenu() {
+	document.getElementById('contextmenu').style.display = 'none';
+	global.cmFile = null;
+}
+
+function toggleStartMenu() {
+	global.startMenu.open = !global.startMenu.open;
+	document.getElementById('startmenu').style.display = global.startMenu.open ? 'block' : 'none';
+}
 
 window.addEventListener('click', function(event) {
 	if(!event.target.classList.contains('contextmenu')) {
-		document.getElementById('contextmenu').style.display = 'none';
-		global.cmFile = null;
+		hideContextMenu();
 	}
 });

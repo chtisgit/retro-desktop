@@ -41,6 +41,57 @@ textarea {
     padding: 0px;
 }
 
+#taskbar {
+    z-index: 5000;
+    height: 36px;
+    position: fixed;
+    bottom: 0px;
+    left: 0px;
+    right: 0px;
+    border-top: 2px solid #f4feff;
+    background-color: #c3cbcd;
+}
+
+#startButton {
+    background-color: #c3cbcd;
+    border: 2px outset #f4feff;
+    width: 70px;
+    height: 32px;
+    margin-top: 2px;
+    vertical-align: middle;
+    text-align: center;
+}
+#startButton:active {
+    border: 2px inset #f4feff;
+}
+
+#startmenu {
+    background-color: #c3cbcd;
+    border: 2px outset #f4feff;
+    min-width: 180px;
+    min-height: 460px;
+    padding: 42px;
+    position: fixed;
+    left: 0px;
+    bottom: 32px;
+    background-image: url('images/retro-desktop-start.gif');
+    background-repeat: no-repeat;
+    background-position: left bottom;
+}
+
+#startmenu-content {
+    margin-top: auto;
+    list-style-type: none;
+    padding-left: 16px;
+    position: absolute;
+    bottom: 0px;
+    left: 42px;
+}
+
+#startmenu-content li {
+    margin: 12px 12px;
+}
+
 .file {
     position: absolute;
     width: 48px;
@@ -198,6 +249,7 @@ textarea {
 .window-titlebar {
     background-color: #000082;
     color: white;
+    font-weight: bold;
     padding: 4px;
     height: 24px;
 }

@@ -181,6 +181,7 @@ function guiCreateWindow(opts)
 	win.appendChild(content);
 
 	title.innerText = opts.title || '<unnamed>';
+	title.classList.add('titlebar-text');
 	maximizeButton.innerText = '⛶';
 	closeButton.innerText = 'x';
 	//closeButton.addEventListener('click', guiWindowCloseHandler);
@@ -189,7 +190,9 @@ function guiCreateWindow(opts)
 	closeButton.addEventListener('mousedown', guiCloseButtonMouseDownHandler);
 	closeButton.addEventListener('mouseup', guiCloseButtonMouseUpHandler);
 	if (opts.onClose) {
-		closeButton.addEventListener('mouseup', opts.onClose);
+		closeButton.addEventListener('mouseup', function() {
+			opts.onClose(win);
+		});
 	}
 
 	win.style.top = (opts.y ? opts.y : 200) + 'px';
@@ -214,6 +217,13 @@ function guiCreateWindow(opts)
 		makeResizable(win);
 
 	return win;
+}
+
+function guiChangeWindowTitle(win, title) {
+	var res = win.getElementsByClassName('titlebar-text');
+	if (res.length === 1) {
+		res[0].innerText = title;
+	}
 }
 
 function guiInit()
@@ -278,9 +288,9 @@ function makeResizable(p)
 function confirmPrompt(title, message, options, closeCallback) {
         var win = guiCreateWindow({
 		title: title,
-		x: 400,
+		x: 250,
 		y: 300,
-		width: 400,
+		width: 700,
 		height: 150,
 		onClose: closeCallback,
 		noResize: true,
