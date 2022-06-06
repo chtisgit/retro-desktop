@@ -116,6 +116,8 @@ func (u *UploadManager) startUploadsWorker() {
 
 	go func() {
 		t := time.NewTicker(time.Second * 2)
+		defer t.Stop()
+
 		for {
 			u.dt.sendUploadStatus(u.Get())
 			u.removeOld()
