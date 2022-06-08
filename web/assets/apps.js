@@ -242,7 +242,7 @@ var appAPI = {
 			return;
 		}
 
-		appAPI.splice(i,1);
+		appAPI.running.splice(i,1);
 	},
 	set_window_title(title, event) {
 		var iframe = this.findIframe(event.source);
@@ -306,3 +306,4 @@ function initAppAPI () {
 registerHandler(['app'], installerApp);
 updateStartMenu();
 initAppAPI();
+
